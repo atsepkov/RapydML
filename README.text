@@ -1,0 +1,182 @@
+# RapydML HTML Pre-Processor
+
+Since I get bored of writing formal documentation, I decided to put together a quick FAQ-type README file instead. Originally, I slapped together this pre-parser for myself, to make it easier and more fun to write my web2py templates. It worked, I love this thing, but I can't promise that the syntax/format will remain unchanged. I'm still playing with it, trying to decide which features I like and which I don't. Feel free to contact me with suggestions.
+
+
+## Q: What is RapydML and how do I use it?
+
+RapydML is pre-parser that allows you to write HTML in more readable, Python-like format. The parser then generates HTML for you automatically. It saves time by automatically closing/aligning different HTML tags for you. It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
+
+	<html>
+		<head>
+			<title>Welcome to my Web Page</title>
+		</head>
+		<body>
+			<div id="title">
+				<img src="banner.png" alt="My Banner" />
+			</div>
+			<div id="content">
+				I haven't yet put anything on this page
+			</div>
+			<div id="copyright">
+				Copyright 2012 by Me
+			</div>
+		</body>
+	</html>
+
+We can rewrite the above using RapydML as follows:
+
+	html:
+		head:
+			title:
+				"Welcome to my Web Page"
+		body:
+			div(#title):
+				img(src="banner.png", alt="My Banner")
+			div(#content):
+				"I haven't yet put anything on this page"
+			div(#copyright):
+				"Copyright 2012 by Me"
+
+We can pass in attributes as if they're arguments in a function call. RapydML also accepts CSS shorthand for id and class attributes, as you can see in the example above, making your CSS and HTML code more consistent. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
+
+	<div id="content">
+		I haven't yet put anything on this page
+		<p>
+			Compatible with all major browsers:
+			<img src="Firefox.jpg" alt="Firefox" />
+			<img src="Chrome.jpg" alt="Chrome" />
+			<img src="IE.jpg" alt="IE" />
+			<img src="Opera.jpg" alt="Opera" />
+			<img src="Safari.jpg" alt="Safari" />
+		</p>
+	</div>
+
+In RapydML we can accomplish the same thing with less repeated code using a loop:
+
+	div(#content):
+		"I haven't yet put anything on this page"
+		p:
+			"Compatible with all major browsers:"
+			for $browser in [Firefox, Chrome, IE, Opera, Safari]:
+				img(src="$browser.jpg", alt="$browser")
+
+But what if our alt attributes don't happen to match our image names? That can be remedied as well, by grouping variables via sub-arrays:
+
+	div(#content):
+		"I haven't yet put anything on this page"
+		p:
+			"Compatible with all major browsers:"
+			for $item in [[firefox, Firefox], [chrome, , Chrome], [ie, Internet Explorer], [opera, Opera], [safari, Safari]]:
+				img(src="$item[0].jpg", alt="$item[1]")
+
+Notice how we declare variables in RapydML. All variables must be preceeded by $, like in perl. While awkward at first, this actually allows us to more easily distinguish variables from HTML tags, and allows us better syntax highlighting of variables, something Python doesn't have. The assignment operator is := instead of the typical = sign. This is to avoid clashing with HTML's = sign if it happens to be part of the variable's value, as shown in example below:
+
+	$src := src="smiley.gif", alt="A Smiley"
+	for $i in [0:100]:
+		img($src)
+	
+We don't need to quote whatever we're assigning to the variable, the leading/lagging whitespace will automatically get stripped, the whitespace in the middle will get preserved. Note the use of a shorthand to create an array of 101 consecutive integers. This shorthand works similar to Python's range() function. The first argument specifies the minimum, the second specifies the maximum (not maximum+1 like Python's range()), the third argument is optional and represents the step size. Here are some examples:
+	[0:6]		-> [0,1,2,3,4,5,6]
+	[1:8:2]		-> [1,3,5,7]
+	[8:1:-1]	-> [8,7,6,5,4,3,2,1]
+	[8:1]		-> []
+
+
+## Q: What if I want to insert raw HTML or Javascript into my code?
+
+There were multiple alternatives I looked into for this, in the end I settled on one that seemed cleanest. RapydML introduces a verbatim() method, which if specified for the tag, will treat everything indented under the tag as raw text, putting it inside the HTML page as is. For example, let's add a Javascript tag. We can do it a couple different ways:
+
+	javascript = verbatim('<script type="text/javascript">','</script>')
+
+The second way, since we already have a 'script' tag defined for us by default that works exactly like we need to, is to pass in an existing tag to use as a template:
+
+	javascript = verbatim(script(type="text/javascript"))
+
+Now, should we choose to add raw JavaScript to our code, we can write it as follows:
+
+	body:
+		h1:
+			'Page Title'
+		javascript:
+			function factorial(n) {
+				if (n === 0) {
+					return 1;
+				}
+				return n * factorial(n - 1);
+			}
+		div:
+			label:
+				'Text goes here'
+
+As soon as indentation resets to same level or higher as the verbatim tag, the raw JavaScript stops, and we start interpreting tags again. There is also verbatim_line() method available, that works the same way, but condenses the code into a single line by replacing '\n' with spaces and removing indentation. This is useful when you want to compress the chunk of raw code into a single line.
+
+
+## Q: I don't really write raw HTML anymore, I use Django/Web2py/Rails/etc. template engine. What does RapydML buy me?
+
+RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
+
+	django = TemplateEngine('<% %s %>')
+	django.for = create('for %s in %s:', 'endfor')
+
+We now can invoke a Django for loop as follows:
+
+	django.for(i, array):
+
+Note that %s is used to specify the insertion of passed in arguments later. By passing a template to our TemplateEngine constructor, we tell it to wrap every call to django inside '<% %>' tags. Note also how a typical for loop gets declared. The fact that we called it 'django.for' is just for convenience, we could have easily called it 'django.loop' or any other keyword. What is important, however, is the arguments we pass to the creation method. The first argument represents the beginning of this block, the second represents the end of the block. In cases where the end block is irrelevant (such as <%= item %> tag), you can omit the second argument:
+
+	django.out = create('= %s ')
+
+But how does RapydML handle more complex template elements, such as an if/then/else block? With append() method, we can assign elif/else methods to the same consturct as an if statement. The following 3-liner adds support for if/then/else statements of any complexity:
+
+	django.if = create('if %s:', 'endif')
+	django.elif = django.if.append('elif %s:')
+	django.else = django.if.append('else:')
+
+Not bad, but what about more complex templating engines, such as web2py, that allow you to define functions inside of your view? Well, first of all, if you're defining functions inside of your view, you're probably doing something wrong (these should probably exist in the controller instead). But if you still desire to have them in your view, it's not that hard to accomplish. Let's take a look at the following chunk of code from Views chapter of the [web2py tutorial book](http://web2py.com/books/default/chapter/29/5):
+
+	{{def itemize1(link): return LI(A(link, _href="http://" + link))}}
+	<ul>
+	{{=itemize1('www.google.com')}}
+	</ul>
+
+Remember the verbatim() method we showed you earlier for including arbitrary chunks of JavaScript and HTML inside of your page? This same method can be used here as well, and even happens to make the above code cleaner. In this case we will be using verbatim_line() method, which works just like the normal verbatim(), except it replaces all '\n' characters with spaces, which condenses your chunk of code into a single line:
+
+	web2py.def = verbatim_line(web2py)
+
+Now we can use the def method to define any methods we want inside our template. Let's rewrite the above chunk of code from web2py page:
+
+	web2py.def:
+		def itemize1(link):
+			return LI(A(link, _href="http://" + link))
+
+	ul:
+		web2py.out(itemize1('www.google.com'))
+
+While the code in this example isn't shorter than the original, I think you will agree that it is cleaner. That's cool and all, but if you had to include language template definitions in every HTML file you write, you would probably lose interest in RapydML pretty fast. To remedy this, you can use the 'import' statement. Feel free to take all your Django/Web2py/Rails definitions and dump them into a separate file, naming it django.pyml, for example. Now add the following line to each one of your files that needs to use it:
+
+	import django
+
+Now you can even share your Django definitions with other developers. To keep things clean, you can even move template definitions to a separate directory, and reference them the same way you would in Python. If we decided to move our django.pyml template to views/templates directory, for example, we can then import it as follows:
+
+	import views.templates.django
+
+The notable difference here between Python and RapydML is the lack of namespaces. That means we would still reference the template engine by the same name as it's declared in the template file, rather than as we import it. So we would invoke the for loop as django.for(...) rather than views.templates.django.for(...). RapydML's import mechanism isn't as complex as Python's, we simply concatenate the contents of imported files into the main one, checking only that we don't import the same file multiple times.
+
+
+## Q: This looks very similar to HAML, why did you write this? And why should I use this?
+
+Admittedly, I started this as an afternoon hobby project, while being too naive to check that something like HAML already exists. After looking at HAML, however, I quickly realized that I like my solution much more than HAML. HAML takes the Rails approach, where it assumes things for you, and if those assumptions are correct, 'magic' happens. If they're not, you will spend a lot of time banging your head against a wall. HAML assumes that most tags will be DIVs, for example, replacing forgotten tags with DIVs for you. This assumption probably will not hold in the future. HTML5 already added multiple new tags (header, footer, article, nav, etc.) to reduce the number of DIVs needed on a page, and more tags will likely follow. HAML also also assumes that you will be using it with Rails to generate .erb files, you're out of luck if you use it with Django or Web2py. Like Rails, it's very good for doing things it was designed to do, but not something the developers didn't account for.
+
+RapydML takes a more Pythonic approach, being simple, extensible, and explicit. You can extend it as you see fit, and it makes very few assumptions for you. You will also notice that RapydML code, while slightly longer, is much more readable than HAML, taking the Python approach here as well. You spend a lot more time looking at the code than writing it, so why make the code hard to read?
+
+
+## Q: Cool, how do I install it?
+
+You don't need to, currently it's a stand alone file. In the future I might add an optional setup file, but I figured it would be overkill for now. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc.
+
+## TODO:
+- separate HTML element list into a separate text file that can be interchanged with other formats like SVG/XML with a paramter
+- add ability to provide valid attribute names for each element in the same text file
+- figure out if I want to address the broken ID shorthand (by forcing use of quotes for colors, for example) or remove these shorthands altogether
+
