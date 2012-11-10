@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys, re
 import string
 
@@ -573,7 +575,8 @@ class Parser:
 			return # this is not an element that requires closing
 		
 		# in order to use short-hand <tag /> we need to make sure that tag name matches as well as indent
-		if self.last_opened_element not in self.special_tags and re.search('^%s</%s>' % (self.indent_marker*self.indent, self.last_opened_element), tag):
+		if self.last_opened_element not in self.special_tags \
+		and re.search('^%s</%s>' % (self.indent_marker*self.indent, self.last_opened_element), tag):
 			self.write(' />\n', -2)
 		else:
 			self.write(tag)
@@ -633,7 +636,6 @@ class Parser:
 		# the only tricky part is that loops can be nested
 		tag = line.strip()
 		indent = self.find_indent(line)
-		print indent, self.indent
 		if tag[:4] == 'for ':	# new loop started (either within old loop, or outside)
 			self.handle_indent(indent-self.indent, None)
 			self.indent = indent
@@ -745,7 +747,6 @@ class Parser:
 			except (KeyError, IndexError, TypeError):
 				raise ParserError("Improper TemplateEngine method declaration or invocation")
 	
-	def check_for_algebra(self, tag):
 		# helper method for checking if the line involves variable assignment and/or reassignment
 		if tag.find(':=') != -1:
 			# variable declaration
@@ -832,6 +833,7 @@ class Parser:
 				self.write(self.verbatim_buffer)
 				self.verbatim_buffer = ''
 				self.current_verbatim = None
+				self.close_last_element() # close verbatim element so it does not screw up the stack
 				self.handle_line(line)
 	
 	def handle_line(self, line):
@@ -909,24 +911,24 @@ class Parser:
 		
 		tag = self.get_variables(tag)
 		
-		# handle quoted strings as plain-text
 		if tag[0] in ('"', "'"):
-			self.last_opened_element = None
-			self.write(whitespace + tag[1:-1] + '\n')
-			return
+			# handle quoted strings as plain-text
+			starttag = tag[1:-1] + '\n'
+			element = None
+			htmlend = None
+		else:
+			# test if this tag is a method call, if so execute it
+			element, attributes = parse_definition(tag)
+			if element in self.method_map.keys():
+				self.handle_indent(indent_diff, None)
+				self.indent = indent
+				for method_line in self.method_map[element].run_method(attributes, self.var_map):
+					if method_line is not None:
+						self.handle_line(whitespace+method_line)
+				return
 		
-		# test if this tag is a method call, if so execute it
-		element, attributes = parse_definition(tag)
-		if element in self.method_map.keys():
-			self.handle_indent(indent_diff, None)
-			self.indent = indent
-			for method_line in self.method_map[element].run_method(attributes, self.var_map):
-				if method_line is not None:
-					self.handle_line(whitespace+method_line)
-			return
-		
-		starttag, endtag = create_tag(element, attributes)
-		htmlend = whitespace + endtag
+			starttag, endtag = create_tag(element, attributes)
+			htmlend = whitespace + endtag
 		
 		# check indent difference, close old tags if indent < 1
 		self.handle_indent(indent_diff, htmlend)
