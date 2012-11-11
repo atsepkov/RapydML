@@ -78,8 +78,10 @@ def get_attr(tag):
 		
 		for i in range(len(final_attr_list)):
 			final_attr_list[i] = convert_attr(final_attr_list[i])
-			if final_attr_list[i][0] in ('"', "'") and final_attr_list[i].find('=') != -1:
-				# strip quotes from attribute name
+			if final_attr_list[i][0] in ('"', "'") \
+			and re.match(r'(["\'])[^"\']\1\s*=.*', final_attr_list[i]):
+				# strip quotes from attribute name (because attr names with special chars
+				# require quotes, i.e. 'z-index'
 				final_attr_list[i] = final_attr_list[i].replace(final_attr_list[i][0], '', 2)
 		return final_attr_list
 	
@@ -173,7 +175,7 @@ def parse_array_part(array_part):
 	return array, start_index
 
 def parse_template_engine_method_declaration(line):
-	command_pair = line.split('=')
+	command_pair = line.split('=', 1)
 	if len(command_pair) != 2:
 		raise ParserError("Improper TemplateEngine method declaration, variable assigned to must follow format of TemplateEngine.MethodName")
 	method_pair = command_pair[0].rstrip().rsplit('.', 1)
@@ -318,7 +320,8 @@ class Method:
 
 class TemplateEngine:
 	"""
-	Helper class for generating HTML templates used by various templating engines such as Django, web2py, or Rails
+	Helper class for generating HTML templates used by various templating engines such as Django,
+	web2py, or Rails
 	"""
 	
 	def __init__(self, tag_format):
@@ -374,6 +377,7 @@ class TemplateEngine:
 		return self.tag_format % contents
 	
 	def end_method(self, method, close=True):
+		# return the end method for 
 		if close and self.method_stack:
 			self.method_stack.pop()
 		if self.methods[method][2] is None:
@@ -727,11 +731,16 @@ class Parser:
 		else:
 			try:
 				# invoke template engine method
-				whitespace = self.indent_marker*indent
+				if indent:
+					whitespace = self.indent_marker*indent
+				else:
+					whitespace = ''
 				indent_diff = indent-self.indent
 				method_pair = line.split('(')[0].rstrip().rsplit('.', 1)
 				if not self.template_engines[method_pair[0]].is_submethod(method_pair[1], indent):
-					self.handle_indent(indent_diff, whitespace + self.template_engines[method_pair[0]].end_method(method_pair[1]))
+					end_method = self.template_engines[method_pair[0]].end_method(method_pair[1])
+					if end_method is not None:
+						self.handle_indent(indent_diff, whitespace + end_method)
 				else:
 					#note the indent_diff+1, we want to close inner logic, but not the method itself
 					endtag = self.template_engines[method_pair[0]].end_method(method_pair[1], False)
@@ -748,14 +757,14 @@ class Parser:
 				raise ParserError("Improper TemplateEngine method declaration or invocation")
 	
 		# helper method for checking if the line involves variable assignment and/or reassignment
-		if tag.find(':=') != -1:
+		if line.find(':=') != -1:
 			# variable declaration
-			self.set_variable(tag)
+			self.set_variable(line)
 			return
 		elif line.find('+=') != -1 or line.find('-=') != -1 or line.find('*=') != -1 or line.find('/=') != -1:
 			# variable increment
 			res = self.expand_assignment_ops(line)
-			tag = self.var_map[res]
+			line = self.var_map[res]
 	
 	def handle_indent(self, indent_diff, endtag):
 		# push to or pop from the stack, depending on indent

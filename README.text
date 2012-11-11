@@ -117,7 +117,7 @@ As soon as indentation resets to same level or higher as the verbatim tag, the r
 
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
 
-	django = TemplateEngine('<% %s %>')
+	django = TemplateEngine('<%% %s %%>')
 	django.for = create('for %s in %s:', 'endfor')
 
 We now can invoke a Django for loop as follows:
@@ -164,6 +164,8 @@ Now you can even share your Django definitions with other developers. To keep th
 
 The notable difference here between Python and RapydML is the lack of namespaces. That means we would still reference the template engine by the same name as it's declared in the template file, rather than as we import it. So we would invoke the for loop as django.for(...) rather than views.templates.django.for(...). RapydML's import mechanism isn't as complex as Python's, we simply concatenate the contents of imported files into the main one, checking only that we don't import the same file multiple times.
 
+To make it easier to write HTML, as well as create new templates, I have included templates for web2py, Django, and Rails. Feel free to use them to write your own web pages, as well as develop new templates for other engines. If you do plan to use a template engine, I suggest you also read the Advanced Usage section at the end.
+
 
 ## Q: This looks very similar to HAML, why did you write this? And why should I use this?
 
@@ -181,3 +183,15 @@ You don't need to, currently it's a stand alone file. In the future I might add 
 - add ability to provide valid attribute names for each element in the same text file
 - figure out if I want to address the broken ID shorthand (by forcing use of quotes for colors, for example) or remove these shorthands altogether
 
+
+## Advanced Usage
+
+If you decide to use RapydML as the main tool for building your HTML, you might want to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
+
+Some of that niche, however, can be better addressed by RapydML. For example, you're probably familiar with the following line from Django (or its equivalent web2py or Rails):
+
+	{% extends basic.html %}
+
+For those unfamiliar with it, the above line includes HTML from basic.html inside of the current page. This is a useful technique to avoid unnecessary copies of HTML that's common to multiple pages (this includes navigation menus, website logo, etc.). The above logic, however, can also be substituted with RapydML's `import` statement, importing HTML from another page. Which solution is better?
+
+If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.
