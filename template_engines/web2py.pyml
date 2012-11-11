@@ -1,0 +1,29 @@
+# WEB2PY Template Engine
+#
+# This is a template engine for basic web2py logic. A lot of the same logic can be reused to 
+# create template engines for other markup, such as Django and Rails
+
+web2py = TemplateEngine('{{%s}}')
+
+# logic we didn't account for: web2py.do("items = ['a', 'b', 'c']") -> {{items = ['a', 'b', 'c']}}
+web2py.do = create('%s')
+
+# basic
+# output: web2py.print('item') -> {{=item}}
+# extend logic
+web2py.print = create('=%s')
+web2py.extend = create('extend %s')
+
+# loops
+web2py.for = create('for %s in %s:', 'pass')
+web2py.while = create('while %s:', 'pass')
+
+# if statements
+web2py.if = create('if %s:', 'pass')
+web2py.elif = web2py.if.append('elif %s:')
+web2py.else = web2py.if.append('else:')
+
+# try blocks
+web2py.try = create('try:', 'pass')
+web2py.except = web2py.try.append('except %s:')
+

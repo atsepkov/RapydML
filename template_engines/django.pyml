@@ -1,0 +1,29 @@
+# DJANGO Template Engine
+#
+# This is a template engine for basic Django logic. A lot of the same logic can be reused to 
+# create template engines for other markup.
+
+django = TemplateEngine('{%s}')
+
+# logic we didn't account for: django.do("items = ['a', 'b', 'c']") -> {% items = ['a', 'b', 'c'] %}
+django.do = create('%% %s %%')
+
+# basic
+# extend logic
+# variables: django.var(a) -> {{a}}
+# output: django.print(item) -> {%= item %}
+django.extend = create('%% extends %s %%')
+django.var = create('{%s}')
+django.print = create('%%= %s %%')
+
+# loops
+django.for = create('%% for %s in %s %%', '% endfor %')
+django.while = create('%% while %s %%', '% endwhile %')
+
+# if statements
+django.if = create('%% if %s %%', '% endif %')
+django.elif = django.if.append('%% elif %s %%')
+django.else = django.if.append('% else %')
+
+# other
+django.block = create('%% block %s %%', '% endblock %')

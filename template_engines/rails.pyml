@@ -1,0 +1,27 @@
+# Ruby on Rails Template Engine
+#
+# This is a template engine for basic rails logic. A lot of the same logic can be reused to 
+# create template engines for other markup, such as Django and Rails
+
+rails = TemplateEngine('<%%%s%%>')
+
+# logic we didn't account for: rails.do("items = ['a', 'b', 'c']") -> <% items = ['a', 'b', 'c'] %>
+rails.do = create(' %s ')
+
+# basic
+# output: rails.print('item') -> <%= item %>
+# extend logic
+rails.print = create('= %s ')
+rails.render = create('= render %s ')
+
+# loops
+rails.for = create(' for %s in %s ', ' end ')
+rails.while = create(' while %s ', ' end ')
+rails.each = create(' %s.each do |%s| ', ' end ')
+
+# if statements
+rails.if = create(' if %s ', ' end ')
+rails.elif = rails.if.append(' elsif %s ')
+rails.else = rails.if.append(' else ')
+
+
