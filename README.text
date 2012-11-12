@@ -38,7 +38,10 @@ We can rewrite the above using RapydML as follows:
 			div(#copyright):
 				"Copyright 2012 by Me"
 
-We can pass in attributes as if they're arguments in a function call. RapydML also accepts CSS shorthand for id and class attributes, as you can see in the example above, making your CSS and HTML code more consistent. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
+
+### Loops and Code Reuse
+
+We can pass in attributes as if they're arguments in a function call. RapydML also accepts CSS shorthand for id and class attributes (currently disabled for ID tag due to conflicts with comments and color codes), as you can see in the example above, making your CSS and HTML code more consistent. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
 
 	<div id="content">
 		I haven't yet put anything on this page
@@ -70,6 +73,9 @@ But what if our alt attributes don't happen to match our image names? That can b
 			for $item in [[firefox, Firefox], [chrome, , Chrome], [ie, Internet Explorer], [opera, Opera], [safari, Safari]]:
 				img(src="$item[0].jpg", alt="$item[1]")
 
+
+### Variables and Sequences
+
 Notice how we declare variables in RapydML. All variables must be preceeded by $, like in perl. While awkward at first, this actually allows us to more easily distinguish variables from HTML tags, and allows us better syntax highlighting of variables, something Python doesn't have. The assignment operator is := instead of the typical = sign. This is to avoid clashing with HTML's = sign if it happens to be part of the variable's value, as shown in example below:
 
 	$src := src="smiley.gif", alt="A Smiley"
@@ -82,6 +88,42 @@ We don't need to quote whatever we're assigning to the variable, the leading/lag
 	[1:8:2]		-> [1,3,5,7]
 	[8:1:-1]	-> [8,7,6,5,4,3,2,1]
 	[8:1]		-> []
+
+
+### Functions and HTML Chunks
+
+If you find yourself reusing the same HTML in multiple places, but not in sequential order (preventing you from using a loop), you can define a method, which you can then invoke. A RapydML method is a chunk of HTML, which then gets plugged in every time the method call occurs. For example, here is how we could create a navigation menu, reusing the same button logic:
+
+	def navbutton($text):
+		div(class='nav-button'):
+			img(src="$text.png", alt="Navigate to $text")
+	
+	div(id='nav-menu'):
+		navbutton('Main')
+		navbutton('Products')
+		navbutton('Blog')
+		navbutton('About')
+
+
+### Arithmetic and Color Manipulation
+
+Like many other pre-compilers, RapydML can handle math and color computations for you. For example, let's rewrite the above logic such that our navigation buttons start with dark blue and get brighter with each button:
+
+	$color := #004
+	def navbutton($text):
+		div(class='nav-button', style="background: $color"):
+			img(src="$text.png", alt="Navigate to $text")
+	
+	div(id='nav-menu'):
+		for $i in ['Main', 'Products', 'Blog', 'About']:
+			$color += #222
+			navbutton($i)
+
+Note that `$color` needs to be updated outside of a function. This is because RapydML shadows function variables, like Python. Moving `$color += #222` inside the function will update a local copy of `$color`, which gets discarded after the function terminates. RapydML is smart about colors. You can use the regular `#RRGGBB` format, shorthand `#RGB` form, or even html-accepted color name like `"Brown"`. When using html colors, it's important to use double-quotes around the color, otherwise it will be treated as a regular string instead. The color name itself, however, is not case sensitive, you can use "DarkBlue" or "darkblue", for example, or even "dArKbLuE". If no color with that name exists the string will be treated as a regular string. Mathematical computations are not limited to colors, you can also use them to compute dimensions:
+
+	$height := 100
+	$border := 2
+	$total := $height + $border + 1
 
 
 ## Q: What if I want to insert raw HTML or Javascript into my code?
@@ -188,14 +230,71 @@ You don't need to, currently it's a stand alone file. In the future I might add 
 - figure out if I want to address the broken ID shorthand (by forcing use of quotes for colors, for example) or remove these shorthands altogether
 
 
-## Advanced Usage
+# Advanced Usage
 
-If you decide to use RapydML as the main tool for building your HTML, you might want to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
+If you decide to use RapydML as the main tool for building your HTML, you might want to be familiar with some advanced features and tricks. If that's the case, this section is for you.
+
+
+## Customizing Markup
+
+RapydML is not limited to HTML. If you open up the `markup` directory, you will notice 3 files: `any`, `html`, and `html5`. `html` is the default markup RapydML assumes if you omit the markup modifier when compiling your `.pyml` file. This markup is designed to limit you to valid HTML tags, but does not enforce any attribute limitations or HTML versions. `html5` is much stricter, enforcing valid HTML5 tags as well as attributes. Finally, `any` is the most relaxed of the 3, allowing you to use any tag with any attributes. `any` markup assumes every tag which has not been explicitly defined as a method (via the use of `def` keyword inside of your `.pyml` file) to be a valid markup tag.
+
+Using one of these as an example, you can create your own rules for any other *ML-like markup (SVG, XSLT, or XML that's custom to your project). The basic rules are very simple, but their combinations allow for very powerful customizations:
+
+Rules:
+|	- each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
+	<tagname>	allowedattr1, allowedattr2, ...
+|		example:	<canvas>	height, width
+|	- indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
+|		example:
+|			<col>	span
+|				<colgroup>
+|	#	- marks beginning of a comment
+|		example:	# this is a comment
+|	\	- when used at the end of the line, concatenates next line with current line, removing leading whitespace from next line
+|		example:
+|			<*>		attr1, attr2, attr3, \
+|					attr4, attr5
+|	<.>	- marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
+|		example:	<.>	disabled, form, name
+|						<input>
+|						<button>
+|	*	- if used instead of attributes, removes any argument restrictions from this tag
+|		example:	<a>	*
+|	+	- force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
+|		example:	<canvas>+
+|	-	- force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
+|		example:	<!DOCTYPE>-
+|	- you can repeat the same tag multiple times, this is typically useful when it reuses same attributes as multiple other tags, yet those other tags don't share attributes. Note that when using + or - tag modifiers, the first occurence of the tag will be used for deciding the element/tag modifier. The rest will be ignored.
+|		example:
+|			<canvas>	height, width
+|				<input>	alt, src
+|			<button>	disabled, type, value
+|				<input>
+|	<*>	- a special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
+|		example:	<*> attr1, attr2	# allows any element name as long as only attr1 or attr2 attributes are used
+
+Note that wildcard tag is independent of wilcard attribute character. You can do each of the following for example:
+
+	<*>		*		# places no restrictions on allowed elements or attributes (everything that wasn't 
+					# explicitly declared as a method will be treated as an element tag)
+	<foo>	*		# only allows `foo` element tag, but places no restrictions on usable attributes
+	<*>		bar		# allows you to use any element tag name, but the only supported attribute for your 
+					# elements is `bar`
+	<foo>	bar		# only allows `foo` element tag, only allows `bar` attribute for it
+	<*>				# places no restrictions on allowed elements, but does not allow any attributes 
+					# (note that this only applies to elements that have not been explicitly mentioned
+					# in the markup)
+
+
+## HTML Rendering Optimizations
+
+If you're using web2py/Rails/Django or similar engine, you might have noticed that RapydML can handle some of the logic you previously relied on your templating engine for (things like combining content from multiple page templates/chunks, repeating portions of your HTML within the same page, etc.). You might be curious which solution is better. For that we'll need to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
 
 Some of that niche, however, can be better addressed by RapydML. For example, you're probably familiar with the following line from Django (or its equivalent web2py or Rails):
 
 	{% extends basic.html %}
 
-For those unfamiliar with it, the above line includes HTML from basic.html inside of the current page. This is a useful technique to avoid unnecessary copies of HTML that's common to multiple pages (this includes navigation menus, website logo, etc.). The above logic, however, can also be substituted with RapydML's `import` statement, importing HTML from another page. For example, I can create a template.pyml file, declararing a function for generating a chunk of reusable HTML inside of it, and then invoke that function in every place I want that HTML to appear. Which solution is better?
+For those unfamiliar with it, the above line includes HTML from basic.html inside of the current page. This is a useful technique to avoid unnecessary copies of HTML that's common to multiple pages (this includes navigation menus, website logo, etc.). The above logic, however, can also be substituted with RapydML's `import` statement, importing RapydML logic from another page. For example, I can create a template.pyml file, declararing a function for generating a chunk of reusable HTML inside of it, and then invoke that function in every place I want that HTML to appear. Which solution is better?
 
-If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.
+If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles, smart engines will probably cache this data), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.

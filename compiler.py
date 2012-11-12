@@ -251,12 +251,13 @@ class Method:
 			# check for "blue" etc
 			# check for #fff etc
 			is_color_computation = False
-			possible_colors = re.findall('[A-Za-z]+"(?=(?:(?:[^"]*"){2})*[^"]*$)', part)
+			possible_colors = re.findall('"[A-Za-z]+"(?=(?:(?:[^"]*"){2})*[^"]*$)', part)
 			possible_hex_colors = re.findall('#[A-Fa-f0-9]+(?=(?:(?:[^"]*"){2})*[^"]*$)', part)
 			for color in possible_colors:
+				color = color[1:-1]
 				if self.color.is_color(color):
 					is_color_computation = True
-					part = re.sub('"%s"' % color, self.color.to_num(color), part)
+					part = re.sub('"%s"' % color, str(self.color.to_num(color)), part)
 			for color in possible_hex_colors:
 				if len(color) == 4 or len(color) == 7:
 					is_color_computation = True
@@ -452,7 +453,12 @@ class Parser:
 			try:
 				tag_type = self.valid_tags[self.last_opened_element][0]
 			except KeyError:
-				raise ParserError("'%s' is not a valid markup tag or method name." % self.last_opened_element)
+				# WE SHOULD NOT GET IN HERE UNLESS SOMETHING IS WRONG
+				try:
+					tag_type = self.valid_tags['*'][0]
+				except KeyError:
+					print "This logic should not trigger, please inform RapydML developers, provide the contents of your .pyml file as well."
+					raise ParserError("'%s' is not a valid markup tag or method name." % self.last_opened_element)
 		
 		if tag_type == NORMAL \
 		and re.search('^%s</%s>' % (self.tree.indent_marker*self.tree.indent, self.last_opened_element), tag):
@@ -520,7 +526,7 @@ class Parser:
 		# we can just piggy-back on create_method, since a loop is essentially a repeated function
 		# the only tricky part is that loops can be nested
 		tag = line.strip()
-		indent = self.find_indent(line)
+		indent = self.tree.find_indent(line)
 		if tag[:4] == 'for ':	# new loop started (either within old loop, or outside)
 			self.handle_indent(indent, None)
 			var = tag.split()[1] #[for,$var,in,...]
@@ -794,12 +800,23 @@ class Parser:
 					if method_line is not None:
 						self.handle_line(whitespace+method_line)
 				return
-			elif self.valid_tags[element][1] is not None:
-				# this isn't a method, let's make sure the attributes are valid
-				for attr in attributes:
-					attr_name = attr.split('=', 1)[0]
-					if attr_name not in self.valid_tags[element][1]:
-						raise ParserError("'%s' is not one of allowed attributes for '%s' element" % (attr_name, element))
+			else:
+				# this is a regular tag, not a method, let's make sure the element and attributes are valid
+				try:
+					self.valid_tags[element]
+					hash_key = element
+				except KeyError:
+					try:
+						self.valid_tags['*'] # if we can't access this, wildcard element was not declared
+						hash_key = '*'
+					except KeyError:
+						raise ParserError("'%s' is not a valid markup tag or method name." % element)
+				
+				if self.valid_tags[hash_key][1] is not None:
+					for attr in attributes:
+						attr_name = attr.split('=', 1)[0]
+						if attr_name not in self.valid_tags[hash_key][1]:
+							raise ParserError("'%s' is not one of allowed attributes for '%s' element" % (attr_name, hash_key))
 		
 			starttag, endtag = create_tag(element, attributes)
 			htmlend = whitespace + endtag
@@ -836,12 +853,12 @@ class Parser:
 					self.handle_line(line)
 				except ParserError, (error):
 					print "Error in %s: line %d: %s" % (filename, line_num, error.message)
-					print line
+					print repr(line)
 					sys.exit()
 				except:
 					# on all other errors
 					print "Error in %s: line %d: %s" % (filename, line_num, "'%s' caused the following uncaught exception:" % line.strip())
-					print line
+					print repr(line)
 					raise
 		
 		# terminate non-finished loops and pop off remaining elements, closing our HTML tags

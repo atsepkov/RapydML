@@ -2,8 +2,11 @@
 #
 # This is a lax HTML markup, and should be able to parse any HTML page (regardless of version), it does not enforce
 # any attributes on the element tags.
+#
+# Read html5 markup file for more information on markup template layout
 
 <!doctype>- *
+<!DOCTYPE>- *
 <a> *
 <abbr> *
 <acronym> *

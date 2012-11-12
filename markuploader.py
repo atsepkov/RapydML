@@ -47,7 +47,7 @@ class LineParser:
 		# push and pop from the stack as needed
 		self.tree.handle_indent(line, [self.attr_stack.pop], [self.attr_stack.append, key_val])
 		
-		if element == '*':
+		if element == '.':	# meta-node, innacessible to the pyml file
 			return None, None
 		else:
 			attrs = uniq(flatten_list(self.attr_stack))
