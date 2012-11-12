@@ -1,8 +1,7 @@
-#!/usr/bin/env python
-
 import sys, re
 import string
 from util import IndentParser, ParserError
+from markuploader import NORMAL, SINGLE
 
 def is_number(s):
 	try:
@@ -80,7 +79,7 @@ def get_attr(tag):
 		for i in range(len(final_attr_list)):
 			final_attr_list[i] = convert_attr(final_attr_list[i])
 			if final_attr_list[i][0] in ('"', "'") \
-			and re.match(r'(["\'])[^"\']\1\s*=.*', final_attr_list[i]):
+			and re.match(r'(["\'])[^"\']+\1\s*=.*', final_attr_list[i]):
 				# strip quotes from attribute name (because attr names with special chars
 				# require quotes, i.e. 'z-index'
 				final_attr_list[i] = final_attr_list[i].replace(final_attr_list[i][0], '', 2)
@@ -382,126 +381,15 @@ class Parser:
 	with open(output_file, 'w') as output:
 		output.write(html.parse(input_file))
 	"""
-	special_tags = ['textarea', 'script', 'canvas', 'div']
 	reserved_internal_methods = [
 		'create',
 		'append',
 		'verbatim',
 		'verbatim_line'
 	]
-	reserved_keywords = [
-		'a',
-		'abbr',
-		'address',
-		'area',
-		'article',
-		'aside',
-		'audio',
-		'b',
-		'base',
-		'bdi',
-		'bdo',
-		'blockquote',
-		'body',
-		'br',
-		'button',
-		'canvas',
-		'caption',
-		'cite',
-		'code',
-		'col',
-		'colgroup',
-		'command',
-		'datalist',
-		'dd',
-		'del',
-		'details',
-		'dfn',
-		'div',
-		'dl',
-		'dt',
-		'doctype',
-		'em',
-		'embed',
-		'fieldset',
-		'figcaption',
-		'figure',
-		'footer',
-		'form',
-		'h1',
-		'h2',
-		'h3',
-		'h4',
-		'h5',
-		'h6',
-		'head',
-		'header',
-		'hggroup',
-		'hr',
-		'html',
-		'i',
-		'iframe',
-		'img',
-		'input',
-		'ins',
-		'kbd',
-		'keygen',
-		'label',
-		'legend',
-		'li',
-		'link',
-		'map',
-		'mark',
-		'menu',
-		'meta',
-		'meter',
-		'nav',
-		'noscript',
-		'object',
-		'ol',
-		'optgroup',
-		'option',
-		'output',
-		'p',
-		'param',
-		'pre',
-		'progress',
-		'q',
-		'rp',
-		'rt',
-		'ruby',
-		's',
-		'samp',
-		'script',
-		'section',
-		'select',
-		'small',
-		'source',
-		'span',
-		'strong',
-		'style',
-		'sub',
-		'summary',
-		'sup',
-		'table',
-		'tbody',
-		'td',
-		'textarea',
-		'tfoot',
-		'th',
-		'thead',
-		'time',
-		'title',
-		'tr',
-		'track',
-		'u',
-		'ul',
-		'var',
-		'video',
-		'wbr'
-	]
 	
-	def __init__(self):
+	def __init__(self, valid_tags):
+		self.valid_tags = valid_tags
 		self.tree = IndentParser()
 		self.element_stack = []
 		self.output = ''
@@ -556,12 +444,22 @@ class Parser:
 		if tag is None:
 			return # this is not an element that requires closing
 		
-		# in order to use short-hand <tag /> we need to make sure that tag name matches as well as indent
-		if self.last_opened_element not in self.special_tags \
+		# in order to use short-hand <tag /> we need to make sure that tag is not a special tag, 
+		# and that the name matches as well as indent
+		if self.last_opened_element is None:
+			tag_type = -1
+		else:
+			try:
+				tag_type = self.valid_tags[self.last_opened_element][0]
+			except KeyError:
+				raise ParserError("'%s' is not a valid markup tag or method name." % self.last_opened_element)
+		
+		if tag_type == NORMAL \
 		and re.search('^%s</%s>' % (self.tree.indent_marker*self.tree.indent, self.last_opened_element), tag):
 			self.write(' />\n', -2)
-		else:
+		elif tag_type != SINGLE or self.last_opened_element is None:
 			self.write(tag)
+				
 	
 	def set_variable(self, tag):
 		# sets the variable(s) in the system
@@ -590,7 +488,7 @@ class Parser:
 			if element[0] not in string.letters or not element.isalnum():
 				raise ParserError("Method name must be alphanumeric and start with a letter")
 			
-			if element in self.reserved_keywords:
+			if element in self.valid_tags.keys():
 				raise ParserError("Can't create method named '%s', it's a reserved HTML element name" % element)
 			
 			self.creating_method = element
@@ -896,6 +794,12 @@ class Parser:
 					if method_line is not None:
 						self.handle_line(whitespace+method_line)
 				return
+			elif self.valid_tags[element][1] is not None:
+				# this isn't a method, let's make sure the attributes are valid
+				for attr in attributes:
+					attr_name = attr.split('=', 1)[0]
+					if attr_name not in self.valid_tags[element][1]:
+						raise ParserError("'%s' is not one of allowed attributes for '%s' element" % (attr_name, element))
 		
 			starttag, endtag = create_tag(element, attributes)
 			htmlend = whitespace + endtag
@@ -912,7 +816,7 @@ class Parser:
 	def parse(self, filename, module=False):
 		# we assume here that the file is relatively small compared to our allowed buffer
 		if not module:
-			self.__init__() #reset
+			self.__init__(self.valid_tags) #reset
 		line_num = 0
 		with open(filename, 'r') as source:
 			buffer = ''
@@ -946,9 +850,3 @@ class Parser:
 		while self.element_stack:
 			self.close_last_element()
 		return self.output
-		
-
-html = Parser()
-filename = sys.argv[1].rsplit('.', 1)[0]
-with open(filename + '.html', 'w') as output:
-	output.write(html.parse(sys.argv[1]))

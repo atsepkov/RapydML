@@ -1,11 +1,11 @@
-# RapydML HTML Pre-Processor
+# RapydML *ML Pre-Processor
 
 Since I get bored of writing formal documentation, I decided to put together a quick FAQ-type README file instead. Originally, I slapped together this pre-parser for myself, to make it easier and more fun to write my web2py templates. It worked, I love this thing, but I can't promise that the syntax/format will remain unchanged. I'm still playing with it, trying to decide which features I like and which I don't. Feel free to contact me with suggestions.
 
 
 ## Q: What is RapydML and how do I use it?
 
-RapydML is pre-parser that allows you to write HTML in more readable, Python-like format. The parser then generates HTML for you automatically. It saves time by automatically closing/aligning different HTML tags for you. It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
+RapydML is pre-parser that allows you to write HTML (or any other XML-like markup) in more readable, Python-like format. The parser then generates HTML for you automatically. It saves time by automatically closing/aligning different HTML tags for you. It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
 
 	<html>
 		<head>
@@ -172,6 +172,10 @@ To make it easier to write HTML, as well as create new templates, I have include
 Admittedly, I started this as an afternoon hobby project, while being too naive to check that something like HAML already exists. After looking at HAML, however, I quickly realized that I like my solution much more than HAML. HAML takes the Rails approach, where it assumes things for you, and if those assumptions are correct, 'magic' happens. If they're not, you will spend a lot of time banging your head against a wall. HAML assumes that most tags will be DIVs, for example, replacing forgotten tags with DIVs for you. This assumption probably will not hold in the future. HTML5 already added multiple new tags (header, footer, article, nav, etc.) to reduce the number of DIVs needed on a page, and more tags will likely follow. HAML also also assumes that you will be using it with Rails to generate .erb files, you're out of luck if you use it with Django or Web2py. Like Rails, it's very good for doing things it was designed to do, but not something the developers didn't account for.
 
 RapydML takes a more Pythonic approach, being simple, extensible, and explicit. You can extend it as you see fit, and it makes very few assumptions for you. You will also notice that RapydML code, while slightly longer, is much more readable than HAML, taking the Python approach here as well. You spend a lot more time looking at the code than writing it, so why make the code hard to read?
+
+Perhaps the biggest advantage of RapydML is how customizable it is. By default, RapydML compiles into HTML and is very lax about HTML version, supporting any tags and attributes from HTML1.0 up until HTML5. It also includes a stricter HTML5 template in the `markup` directory, which you can use to ensure your web page is HTML5-compliant. The later template not only checks that your tags are valid, but also that you're using supported HTML5 attributes for them (for example, HTML5 dropped `bgcolor` attribute for `body` tag, and HTML5 template will tell you about that). Similarly, you can create new templates, specifying desired tag names as well as control how strict the template is (refer to `markup/html5` to understand template layout). Once done, just place the template into the `markup` directory, and it will automatically get pulled in by RapydML's compiler. Note that template's filename will become the name of the flag to invoke it, so if you add a file named `svg1`, you will need to invoke the compiler as follows to use it:
+
+	rapydml --svg1 file.pyml
 
 
 ## Q: Cool, how do I install it?

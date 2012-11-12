@@ -13,6 +13,7 @@ class IndentParser:
 	def __init__(self):
 		self.indent = 0
 		self.indent_marker = None
+		self.no_stack = True
 	
 	def find_indent(self, line):
 		# return the indentation level for current line
@@ -31,13 +32,14 @@ class IndentParser:
 		indent = self.find_indent(line)
 		indent_diff = indent - self.indent
 		# push to or pop from the stack, depending on indent
-		if indent_diff < 1 and self.indent_marker is not None: #pop
+		if indent_diff < 1 and not self.no_stack: #pop
 			while indent_diff < 1:
 				dedent_callback[0](*dedent_callback[1:])
 				indent_diff += 1
 		elif indent_diff > 1:
 			raise ParserError('Incorrect indentation')
 		indent_callback[0](*indent_callback[1:])
+		self.no_stack = False
 		self.indent = indent
 	
 	def indent_to(self, num):
