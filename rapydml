@@ -2,6 +2,7 @@
 
 import sys, re
 import string
+from util import IndentParser, ParserError
 
 def is_number(s):
 	try:
@@ -190,17 +191,6 @@ def create_tag(element, attributes):
 		starttag = '<%s>\n' % element
 	endtag = '</%s>\n' % element
 	return starttag, endtag
-
-class ParserError(Exception):
-	"""
-	Helper class for standardizing error messages
-	"""
-	
-	def __init__(self, message):
-		self.message = message
-	
-	def __str__(self):
-		return self.message
 
 class ColorConverter:
 	"""
@@ -512,8 +502,7 @@ class Parser:
 	]
 	
 	def __init__(self):
-		self.indent = 0
-		self.indent_marker = None
+		self.tree = IndentParser()
 		self.element_stack = []
 		self.output = ''
 		self.last_opened_element = None
@@ -560,17 +549,6 @@ class Parser:
 		
 		return line
 	
-	def find_indent(self, line):
-		if line[0] not in ('\t', ' '):
-			return 0
-		indent = line[:len(line)-len(line.lstrip())]
-		
-		# if this is the first time we see an indent, make this our template
-		if self.indent_marker is None:
-			self.indent_marker = indent
-			return 1
-		return len(indent)/len(self.indent_marker) # we assume uniform whitespace here
-	
 	def close_last_element(self):
 		# closes last html tag
 		tag = self.element_stack.pop()
@@ -580,7 +558,7 @@ class Parser:
 		
 		# in order to use short-hand <tag /> we need to make sure that tag name matches as well as indent
 		if self.last_opened_element not in self.special_tags \
-		and re.search('^%s</%s>' % (self.indent_marker*self.indent, self.last_opened_element), tag):
+		and re.search('^%s</%s>' % (self.tree.indent_marker*self.tree.indent, self.last_opened_element), tag):
 			self.write(' />\n', -2)
 		else:
 			self.write(tag)
@@ -604,9 +582,9 @@ class Parser:
 		return self.resolve_indexes(tag) # this converts notation [item1, item2, item3, ...][1] to item2
 	
 	def create_method(self, line):
-		indent = self.find_indent(line) #this should always be zero
+		indent = self.tree.find_indent(line) #this should always be zero
 		if line[:4] == 'def ': # this prevents us from overlooking consecutively declared methods
-			self.indent = indent
+			self.tree.indent = indent
 			element, attributes = parse_definition(line[4:])
 			
 			if element[0] not in string.letters or not element.isalnum():
@@ -623,7 +601,7 @@ class Parser:
 				self.creating_method = None
 				return True #finished
 			else:
-				self.method_map[self.creating_method].add_line(line[len(self.indent_marker):])
+				self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):])
 		return False
 	
 	def unroll_loop(self):
@@ -631,9 +609,14 @@ class Parser:
 		loop_name = loop_token[0]
 		loop_indent = loop_token[1]
 		loop_array = loop_token[2]
-		self.indent = loop_indent
+		self.tree.indent = loop_indent
 		for arg in loop_array:
-			self.handle_line('%s%s(%s)' % (self.indent_marker*loop_indent, loop_name, arg))
+			self.handle_line('%s%s(%s)' % (self.tree.indent_marker*loop_indent, loop_name, arg))
+	
+	def handle_indent(self, indent, method_name):
+		self.tree.handle_indent(self.tree.indent_to(indent) + '|', \
+			[self.close_last_element], \
+			[self.element_stack.append, method_name])
 	
 	def create_loop(self, line):
 		# we can just piggy-back on create_method, since a loop is essentially a repeated function
@@ -641,8 +624,7 @@ class Parser:
 		tag = line.strip()
 		indent = self.find_indent(line)
 		if tag[:4] == 'for ':	# new loop started (either within old loop, or outside)
-			self.handle_indent(indent-self.indent, None)
-			self.indent = indent
+			self.handle_indent(indent, None)
 			var = tag.split()[1] #[for,$var,in,...]
 			if var in self.var_map.keys():
 				raise ParserError("Can't reuse previously defined variable %s as loop iterator" % var)
@@ -667,8 +649,8 @@ class Parser:
 				self.unroll_loop()
 				self.handle_line(line)
 			else:
-				self.indent = indent
-				self.method_map[loop_name].add_line(line[len(self.indent_marker*(loop_indent+1)):])
+				self.tree.indent = indent
+				self.method_map[loop_name].add_line(line[len(self.tree.indent_marker*(loop_indent+1)):])
 
 	def expand_assignment_ops(self, tag, perform=True):
 		# takes operation of form '$a += 3', converts it to '$a := $a + 3' and evaluates it, assigning new value to $a
@@ -731,28 +713,25 @@ class Parser:
 		else:
 			try:
 				# invoke template engine method
-				if indent:
-					whitespace = self.indent_marker*indent
-				else:
-					whitespace = ''
-				indent_diff = indent-self.indent
+				whitespace = self.tree.indent_to(indent)
 				method_pair = line.split('(')[0].rstrip().rsplit('.', 1)
 				if not self.template_engines[method_pair[0]].is_submethod(method_pair[1], indent):
 					end_method = self.template_engines[method_pair[0]].end_method(method_pair[1])
-					if end_method is not None:
-						self.handle_indent(indent_diff, whitespace + end_method)
+					if end_method is None:
+						self.tree.indent = indent
+					else:
+						self.handle_indent(indent, whitespace + end_method)
 				else:
-					#note the indent_diff+1, we want to close inner logic, but not the method itself
+					#note the indent+1, we want to close inner logic, but not the method itself
 					endtag = self.template_engines[method_pair[0]].end_method(method_pair[1], False)
 					if endtag is None:
-						self.handle_indent(indent_diff+1, None)
+						self.handle_indent(indent+1, None)
 						self.element_stack.pop()
 					else:
-						self.handle_indent(indent_diff+1, whitespace + endtag)
+						self.handle_indent(indent+1, whitespace + endtag)
 				attr = get_attr(line)
 				self.write(whitespace + self.template_engines[method_pair[0]].call_method(method_pair[1], attr, indent))
 				#self.element_stack.append(whitespace + self.template_engines[method_pair[0]].end_method(method_pair[1]))
-				self.indent = indent
 			except (KeyError, IndexError, TypeError):
 				raise ParserError("Improper TemplateEngine method declaration or invocation")
 	
@@ -765,18 +744,6 @@ class Parser:
 			# variable increment
 			res = self.expand_assignment_ops(line)
 			line = self.var_map[res]
-	
-	def handle_indent(self, indent_diff, endtag):
-		# push to or pop from the stack, depending on indent
-		if indent_diff < 1 and self.element_stack: #pop
-			while indent_diff < 1:
-				self.close_last_element()
-				indent_diff += 1
-		elif indent_diff > 1:
-			raise ParserError('Incorrect indentation')
-		self.element_stack.append(endtag)
-		# TODO: change last opened element as well?
-		# TODO: set self.indent here as well?
 	
 	MULTILINE = 0
 	SINGLELINE = 1
@@ -811,15 +778,14 @@ class Parser:
 			self.verbatim[newtag] = (starttag, endtag, self.MULTILINE)
 	
 	def handle_verbatim_call(self, line):
-		indent = self.find_indent(line)
+		indent = self.tree.find_indent(line)
 		if self.current_verbatim is None:
 			# this is the first line of verbatim logic
-			self.handle_indent(indent-self.indent, None)
-			self.indent = indent
+			self.handle_indent(indent, None)
 			self.current_verbatim = line.strip().split('(')[0].strip(':')
-			self.verbatim_indent = self.find_indent(line)
+			self.verbatim_indent = self.tree.find_indent(line)
 			if self.verbatim[self.current_verbatim][0] != '':
-				self.verbatim_buffer += self.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][0]
+				self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][0]
 			self.last_opened_element = None
 			self.element_stack.append(None)
 		else:
@@ -828,14 +794,14 @@ class Parser:
 				# still inside verbatim block
 				
 				# doesn't really serve any purpose, this logic is mostly cosmetic to make indentation pretty
-				if self.verbatim[self.current_verbatim][0] == '' and line.find(self.indent_marker) == 0:
-					line = line[len(self.indent_marker):]
+				if self.verbatim[self.current_verbatim][0] == '' and line.find(self.tree.indent_marker) == 0:
+					line = line[len(self.tree.indent_marker):]
 				
 				self.verbatim_buffer += line
 			else:
 				# end of verbatim logic
 				if self.verbatim[self.current_verbatim][1] != '':
-					self.verbatim_buffer += self.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][1]
+					self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][1]
 				if self.verbatim[self.current_verbatim][2] == self.SINGLELINE:
 					self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
 					self.verbatim_buffer += '\n'
@@ -846,12 +812,8 @@ class Parser:
 				self.handle_line(line)
 	
 	def handle_line(self, line):
-		indent = self.find_indent(line)
-		indent_diff = indent-self.indent
-		if self.indent_marker is None:
-			whitespace = ''
-		else:
-			whitespace = self.indent_marker*indent
+		indent = self.tree.find_indent(line)
+		whitespace = self.tree.indent_to(indent)
 		
 		#parse the tag
 		tag = line.strip()
@@ -929,8 +891,7 @@ class Parser:
 			# test if this tag is a method call, if so execute it
 			element, attributes = parse_definition(tag)
 			if element in self.method_map.keys():
-				self.handle_indent(indent_diff, None)
-				self.indent = indent
+				self.handle_indent(indent, None)
 				for method_line in self.method_map[element].run_method(attributes, self.var_map):
 					if method_line is not None:
 						self.handle_line(whitespace+method_line)
@@ -940,10 +901,9 @@ class Parser:
 			htmlend = whitespace + endtag
 		
 		# check indent difference, close old tags if indent < 1
-		self.handle_indent(indent_diff, htmlend)
+		self.handle_indent(indent, htmlend)
 		
 		# update variables
-		self.indent = indent
 		self.last_opened_element = element
 		
 		# dump the current line to file
@@ -971,12 +931,12 @@ class Parser:
 					
 					self.handle_line(line)
 				except ParserError, (error):
-					print "Error in %s: %d: %s" % (filename, line_num, error.message)
+					print "Error in %s: line %d: %s" % (filename, line_num, error.message)
 					print line
 					sys.exit()
 				except:
 					# on all other errors
-					print "Error in %s: %d: %s" % (filename, line_num, "'%s' caused the following uncaught exception:" % line.strip())
+					print "Error in %s: line %d: %s" % (filename, line_num, "'%s' caused the following uncaught exception:" % line.strip())
 					print line
 					raise
 		
