@@ -1,0 +1,16 @@
+# Markup with no restrictions
+#
+# This markup allows you to use any elements/tags and any attributes. This template is meant for experimenting with your files and
+# I don't recommend using it as your main template. Note that wildcard tag is independent of wilcard attribute character. You can
+# do each of the following for example:
+#
+#	<*>		*		# places no restrictions on allowed elements or attributes (everything that wasn't explicitly declared as a
+#					# method will be treated as an element tag)
+#	<foo>	*		# only allows `foo` element tag, but places no restrictions on usable attributes
+#	<*>		bar		# allows you to use any element tag name, but the only supported attribute for your elements is `bar`
+#	<foo>	bar		# only allows `foo` element tag, only allows `bar` attribute for it 	
+#	<*>				# places no restrictions on allowed elements, but does not allow any attributes
+#
+# Read html5 markup file for more information on markup template layout
+
+<*> *
