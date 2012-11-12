@@ -251,13 +251,13 @@ Using one of these as an example, you can create your own rules for any other *M
 
 Rules:
 
-| - each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
-| <tagname>	allowedattr1, allowedattr2, ...
-| 	example:	<canvas>	height, width
-| - indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
-| 	example:
-|			<col>	span
-|				<colgroup>
+- each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):\n
+	<tagname>	allowedattr1, allowedattr2, ...\n
+		example:	<canvas>	height, width\n
+- indentation is used to define child nodes, child nodes inherit allowed attributes from their parents\n
+		example:\n
+			<col>	span\n
+				<colgroup>\n
 |	#	- marks beginning of a comment
 |		example:	# this is a comment
 |	\	- when used at the end of the line, concatenates next line with current line, removing leading whitespace from next line
