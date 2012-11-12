@@ -254,7 +254,9 @@ Rules:
 - each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
 
 	<tagname>	allowedattr1, allowedattr2, ...
-		example:	<canvas>	height, width
+	
+	example:	<canvas>	height, width
+
 - indentation is used to define child nodes, child nodes inherit allowed attributes from their parents\n
 		example:\n
 			<col>	span\n
