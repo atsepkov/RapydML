@@ -119,11 +119,20 @@ Like many other pre-compilers, RapydML can handle math and color computations fo
 			$color += #222
 			navbutton($i)
 
-Note that `$color` needs to be updated outside of a function. This is because RapydML shadows function variables, like Python. Moving `$color += #222` inside the function will update a local copy of `$color`, which gets discarded after the function terminates. RapydML is smart about colors. You can use the regular `#RRGGBB` format, shorthand `#RGB` form, or even html-accepted color name like `"Brown"`. When using html colors, it's important to use double-quotes around the color, otherwise it will be treated as a regular string instead. The color name itself, however, is not case sensitive, you can use "DarkBlue" or "darkblue", for example, or even "dArKbLuE". If no color with that name exists the string will be treated as a regular string. Mathematical computations are not limited to colors, you can also use them to compute dimensions:
+Note that `$color` needs to be updated outside of a function. This is because RapydML shadows function variables, like Python. Moving `$color += #222` inside the function will update a local copy of `$color`, which gets discarded after the function terminates. RapydML is smart about colors. You can use the regular `#RRGGBB` format, shorthand `#RGB` form, or even html-accepted color name like `"Brown"`. When using html colors, it's important to use double-quotes around the color, otherwise it will be treated as a regular string. The color name itself, however, is not case sensitive, you can use "DarkBlue" or "darkblue", for example, or even "dArKbLuE". If no color with that name exists the string will be treated as a regular string. Mathematical computations are not limited to colors, you can also use them to compute dimensions or other data:
 
 	$height := 100
 	$border := 2
 	$total := $height + $border + 1
+
+You probably noticed the use of `+=`, which is a shorthand for incrementing. Here are a few other ones:
+
+	$a += 2			# equivalent to: $a := $a + 2
+	$a -= $b		# equivalent to: $a := $a - $b
+	$a *= $b*2		# equivalent to: $a := $a * ($b*2)
+	$a /= 5 + 2		# equivalent to: $a := $a / (5 + 2)
+
+Lastly, there is a caveat about color arithmetic. While RapydML will limit min/max colors to be within allowed range, the color get converted to an integer when performing operations. This means that if you keep adding blue to a color that already reached maximum allowed amount of blue, RapydML will start adding green. This behavior could be modified in the future such that each channel is independent.
 
 
 ## Q: What if I want to insert raw HTML or Javascript into my code?
@@ -225,9 +234,8 @@ Perhaps the biggest advantage of RapydML is how customizable it is. By default, 
 You don't need to, currently it's a stand alone file. In the future I might add an optional setup file, but I figured it would be overkill for now. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc.
 
 ## TODO:
-- separate HTML element list into a separate text file that can be interchanged with other formats like SVG/XML with a paramter
-- add ability to provide valid attribute names for each element in the same text file
 - figure out if I want to address the broken ID shorthand (by forcing use of quotes for colors, for example) or remove these shorthands altogether
+- separate color channels for color arithmetic
 
 
 # Advanced Usage
@@ -242,6 +250,7 @@ RapydML is not limited to HTML. If you open up the `markup` directory, you will 
 Using one of these as an example, you can create your own rules for any other *ML-like markup (SVG, XSLT, or XML that's custom to your project). The basic rules are very simple, but their combinations allow for very powerful customizations:
 
 Rules:
+
 |	- each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
 	<tagname>	allowedattr1, allowedattr2, ...
 |		example:	<canvas>	height, width
@@ -276,15 +285,17 @@ Rules:
 
 Note that wildcard tag is independent of wilcard attribute character. You can do each of the following for example:
 
-	<*>		*		# places no restrictions on allowed elements or attributes (everything that wasn't 
-					# explicitly declared as a method will be treated as an element tag)
-	<foo>	*		# only allows `foo` element tag, but places no restrictions on usable attributes
-	<*>		bar		# allows you to use any element tag name, but the only supported attribute for your 
-					# elements is `bar`
+	<*>		*		# places no restrictions on allowed elements or attributes 
+					# (everything that wasn't explicitly declared as a method will 
+					# be treated as an element tag)
+	<foo>	*		# only allows `foo` element tag, but places no restrictions on 
+					# usable attributes
+	<*>		bar		# allows you to use any element tag name, but the only supported 
+					# attribute for your elements is `bar`
 	<foo>	bar		# only allows `foo` element tag, only allows `bar` attribute for it
-	<*>				# places no restrictions on allowed elements, but does not allow any attributes 
-					# (note that this only applies to elements that have not been explicitly mentioned
-					# in the markup)
+	<*>				# places no restrictions on allowed elements, but does not allow 
+					# any attributes (note that this only applies to elements that have
+					# not been explicitly mentioned in the markup)
 
 
 ## HTML Rendering Optimizations

@@ -119,10 +119,12 @@ def replace_variables(code, var_hash, ignore_list=[]):
 def expand_assignment(tag):
 	# handles expansion of increment logic
 	result = tag.split('+=')[0].split('-=')[0].split('*=')[0].split('/=')[0].strip()
-	tag = tag.replace('+=', ':= %s +' % result)\
-			.replace('-=', ':= %s -' % result)\
-			.replace('*=', ':= %s *' % result)\
-			.replace('/=', ':= %s /' % result)
+	tag = tag.replace('+=', ':= %s + (' % result)\
+			.replace('-=', ':= %s - (' % result)\
+			.replace('*=', ':= %s * (' % result)\
+			.replace('/=', ':= %s / (' % result)
+	if tag.count('(') > tag.count(')'):
+		tag = tag.rstrip() + ')\n'
 	return result, tag
 
 def do_arithmetic(operation):
@@ -265,7 +267,7 @@ class Method:
 			
 			part = do_arithmetic(part)
 			if is_color_computation:
-				part = min(int(part), 0xffffff)
+				part = max(min(int(part), 0xffffff), 0x000000)
 				part = '#%s' % self.color.to_color(part)
 		return part
 	
