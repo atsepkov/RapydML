@@ -253,7 +253,8 @@ Using one of these as an example, you can create your own rules for any other *M
 
 #### Line Format
 Each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
-	`<tagname>	allowedattr1, allowedattr2, ...`
+
+	<tagname>	allowedattr1, allowedattr2, ...
 
 #### Example:
 
@@ -268,7 +269,7 @@ Indentation is used to define child nodes, child nodes inherit allowed attribute
 		<colgroup>
 
 #### Comments
-`#` - marks beginning of a comment
+`#` Marks beginning of a comment
 
 #### Example:
 
@@ -283,7 +284,7 @@ When used at the end of the line, concatenates next line with current line, remo
 			attr4, attr5
 
 #### Internal/Meta Nodes
-`<.>` - marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
+`<.>` Marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
 
 #### Example:
 
@@ -292,21 +293,21 @@ When used at the end of the line, concatenates next line with current line, remo
 		<button>
 
 #### Wildcard Attributes
-`*` - if used instead of attributes, removes any argument restrictions from this tag
+`*` If used instead of attributes, removes any argument restrictions from this tag
 
 #### Example:
 
 	<a>	*
 
 #### Force Separate Close Tag
-`+` - force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
+`+` Force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
 
 #### Example:
 
 	<canvas>+
 
 #### Force No Close Tag
-`-` - force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
+`-` Force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
 
 #### Example:
 
@@ -320,10 +321,10 @@ You can repeat the same tag multiple times, this is typically useful when it reu
 	<canvas>	height, width
 		<input>	alt, src
 	<button>	disabled, type, value
-			<input>
+		<input>
 
 #### Wildcard Elements/Tags
-`<*>` - a special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
+`<*>` A special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
 
 #### Example:
 
