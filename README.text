@@ -251,11 +251,11 @@ Using one of these as an example, you can create your own rules for any other *M
 
 Rules:
 
-|	- each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
-	<tagname>	allowedattr1, allowedattr2, ...
-|		example:	<canvas>	height, width
-|	- indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
-|		example:
+| - each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
+| <tagname>	allowedattr1, allowedattr2, ...
+| 	example:	<canvas>	height, width
+| - indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
+| 	example:
 |			<col>	span
 |				<colgroup>
 |	#	- marks beginning of a comment
@@ -288,11 +288,15 @@ Note that wildcard tag is independent of wilcard attribute character. You can do
 	<*>		*		# places no restrictions on allowed elements or attributes 
 					# (everything that wasn't explicitly declared as a method will 
 					# be treated as an element tag)
+	
 	<foo>	*		# only allows `foo` element tag, but places no restrictions on 
 					# usable attributes
+	
 	<*>		bar		# allows you to use any element tag name, but the only supported 
 					# attribute for your elements is `bar`
+	
 	<foo>	bar		# only allows `foo` element tag, only allows `bar` attribute for it
+	
 	<*>				# places no restrictions on allowed elements, but does not allow 
 					# any attributes (note that this only applies to elements that have
 					# not been explicitly mentioned in the markup)
