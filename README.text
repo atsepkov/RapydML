@@ -249,39 +249,85 @@ RapydML is not limited to HTML. If you open up the `markup` directory, you will 
 
 Using one of these as an example, you can create your own rules for any other *ML-like markup (SVG, XSLT, or XML that's custom to your project). The basic rules are very simple, but their combinations allow for very powerful customizations:
 
-Rules:
+### Rules
 
-|	- each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
-	<tagname>	allowedattr1, allowedattr2, ...
-|		example:	<canvas>	height, width
-|	- indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
-|		example:
-|			<col>	span
-|				<colgroup>
-|	#	- marks beginning of a comment
-|		example:	# this is a comment
-|	\	- when used at the end of the line, concatenates next line with current line, removing leading whitespace from next line
-|		example:
-|			<*>		attr1, attr2, attr3, \
-|					attr4, attr5
-|	<.>	- marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
-|		example:	<.>	disabled, form, name
-|						<input>
-|						<button>
-|	*	- if used instead of attributes, removes any argument restrictions from this tag
-|		example:	<a>	*
-|	+	- force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
-|		example:	<canvas>+
-|	-	- force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
-|		example:	<!DOCTYPE>-
-|	- you can repeat the same tag multiple times, this is typically useful when it reuses same attributes as multiple other tags, yet those other tags don't share attributes. Note that when using + or - tag modifiers, the first occurence of the tag will be used for deciding the element/tag modifier. The rest will be ignored.
-|		example:
-|			<canvas>	height, width
-|				<input>	alt, src
-|			<button>	disabled, type, value
-|				<input>
-|	<*>	- a special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
-|		example:	<*> attr1, attr2	# allows any element name as long as only attr1 or attr2 attributes are used
+#### Line Format
+Each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
+	`<tagname>	allowedattr1, allowedattr2, ...`
+
+#### Example:
+
+	<canvas>	height, width
+
+#### Attribute Inheritance
+Indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
+
+#### Example:
+
+	<col>	span
+		<colgroup>
+
+#### Comments
+`#` - marks beginning of a comment
+
+#### Example:
+
+	# this is a comment
+
+#### Breaking Up Long Lines
+When used at the end of the line, concatenates next line with current line, removing leading whitespace from next line
+
+#### Example:
+
+	<.>		attr1, attr2, attr3, \
+			attr4, attr5
+
+#### Internal/Meta Nodes
+`<.>` - marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
+
+#### Example:
+
+	<.>	disabled, form, name
+		<input>
+		<button>
+
+#### Wildcard Attributes
+`*` - if used instead of attributes, removes any argument restrictions from this tag
+
+#### Example:
+
+	<a>	*
+
+#### Force Separate Close Tag
+`+` - force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
+
+#### Example:
+
+	<canvas>+
+
+#### Force No Close Tag
+`-` - force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
+
+#### Example:
+
+	<!DOCTYPE>-
+
+#### Inheriting Attributes From Multiple Nodes
+You can repeat the same tag multiple times, this is typically useful when it reuses same attributes as multiple other tags, yet those other tags don't share attributes. Note that when using + or - tag modifiers, the first occurence of the tag will be used for deciding the element/tag modifier. The rest will be ignored.
+
+#### Example:
+
+	<canvas>	height, width
+		<input>	alt, src
+	<button>	disabled, type, value
+			<input>
+
+#### Wildcard Elements/Tags
+`<*>` - a special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
+
+#### Example:
+
+	<*> attr1, attr2	# allows any element name as long as only attr1 or attr2 attributes are used
 
 Note that wildcard tag is independent of wilcard attribute character. You can do each of the following for example:
 
