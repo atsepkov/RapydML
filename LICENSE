@@ -1,5 +1,7 @@
-RapydML is a Pythonic extension of HTML, adding more functionality and
-ability to easily integrate it with any HTML templating framework.
+RapydML is a Pythonic abstraction of XML/HTML, adding more 
+functionality, ability to easily integrate it with any HTML
+templating framework, and create your own subset of XML whose
+rules will be enforced through RapydML compiler.
 Copyright (C) 2012  Alexander Tsepkov
 
 This program is free software: you can redistribute it and/or modify

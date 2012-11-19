@@ -1,4 +1,4 @@
-import sys, re
+import sys, re, os
 import string
 from util import IndentParser, ParserError
 from markuploader import NORMAL, SINGLE
@@ -201,10 +201,13 @@ class ColorConverter:
 	def __init__(self):
 		# create a map for html color names
 		self.color_map = {}
+		orig_dir = os.getcwd()
+		os.chdir(os.path.abspath(os.path.dirname(sys.argv[0])))
 		with open('html_colors.txt', 'r') as input:
 			for line in input:
 				pair = line.split(':')
 				self.color_map[pair[0]] = pair[1].rstrip()
+		os.chdir(orig_dir)
 	
 	def is_color(self, color_string):
 		return color_string in self.color_map.keys()
@@ -265,7 +268,14 @@ class Method:
 					is_color_computation = True
 					part = re.sub('%s' % color, str(self.color.to_num(color[1:])), part)
 			
-			part = do_arithmetic(part)
+			# remove stuff before equal sign, by this time the variable shouldn't be quoted
+			var_val = re.findall('^([^\'"].*?)=(.*)$', part)
+			if var_val:
+				var_val = var_val[0]
+				part = var_val[0] + '=' + do_arithmetic(var_val[1])
+			else:
+				part = do_arithmetic(part)
+			
 			if is_color_computation:
 				part = max(min(int(part), 0xffffff), 0x000000)
 				part = '#%s' % self.color.to_color(part)
@@ -493,14 +503,15 @@ class Parser:
 			self.tree.indent = indent
 			element, attributes = parse_definition(line[4:])
 			
-			if element[0] not in string.letters or not element.isalnum():
+			if element[0] not in string.letters + '_' or not (element.replace('_','').isalnum()):
 				raise ParserError("Method name must be alphanumeric and start with a letter")
 			
 			if element in self.valid_tags.keys():
 				raise ParserError("Can't create method named '%s', it's a reserved HTML element name" % element)
 			
 			self.creating_method = element
-			self.method_map[element] = Method(attributes, True, self.color) # methods access shadowed variables to prevent overwriting globals
+			# methods access shadowed variables to prevent overwriting globals
+			self.method_map[element] = Method(attributes, True, self.color)
 				
 		else:
 			if indent == 0:
@@ -578,7 +589,7 @@ class Parser:
 				self.parse(tokens[1].replace('.', '/') +'.pyml', True)
 			except IOError:
 				#TODO: make it try to open in parser's directory as well
-				raise ParserError("Can't import %s, module doesn't exist" % tokens[1])
+				raise ParserError("Can't import '%s', module doesn't exist" % tokens[1])
 	
 	def create_template_engine(self, line):
 		# creates a new set of rules for a templating engine, such as Django, Web2py, or Rails
@@ -836,6 +847,7 @@ class Parser:
 		# we assume here that the file is relatively small compared to our allowed buffer
 		if not module:
 			self.__init__(self.valid_tags) #reset
+			os.chdir(os.path.abspath(os.path.dirname(filename)))
 		line_num = 0
 		with open(filename, 'r') as source:
 			buffer = ''

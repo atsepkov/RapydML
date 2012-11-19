@@ -1,11 +1,13 @@
-# RapydML *ML Pre-Processor
+# RapydML XML/HTML Abstraction Markup Language
 
-Since I get bored of writing formal documentation, I decided to put together a quick FAQ-type README file instead. Originally, I slapped together this pre-parser for myself, to make it easier and more fun to write my web2py templates. It worked, I love this thing, but I can't promise that the syntax/format will remain unchanged. I'm still playing with it, trying to decide which features I like and which I don't. Feel free to contact me with suggestions.
+RapydML is a Pythonic abstraction for XML/HTML. The compiler generates HTML or HTML-like templates for Rails, Django, web2py or other frameworks (via templates) from indented, Python-like syntax. RapydML can also compile into arbitrary XML-like markup (such as SVG) based on a set of rules from user-defined template. These templates can have varying level of restrictions (compare the included lax HTML template against strict HTML5, for example)
+
+Since I get bored of writing formal documentation, I decided to put together a quick FAQ-type README file instead. Originally, I slapped together this compiler for myself, to make it easier and more fun to write my web2py templates. It worked, I love this thing, but I can't promise that the syntax/format will remain unchanged. I'm still playing with it, trying to decide which features I like and which I don't. Feel free to contact me with suggestions.
 
 
 ## Q: What is RapydML and how do I use it?
 
-RapydML is pre-parser that allows you to write HTML (or any other XML-like markup) in more readable, Python-like format. The parser then generates HTML for you automatically. It saves time by automatically closing/aligning different HTML tags for you. It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
+RapydML is pre-parser that allows you to write HTML (or any other XML-like markup) in more readable, Python-like format. The parser then generates HTML for you, automatically closing/aligning different HTML tags (it can even be told to avoid closing tags for certain elements - like !DOCTYPE). It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
 
 	<html>
 		<head>
@@ -31,17 +33,17 @@ We can rewrite the above using RapydML as follows:
 			title:
 				"Welcome to my Web Page"
 		body:
-			div(#title):
+			div(id="title"):
 				img(src="banner.png", alt="My Banner")
-			div(#content):
+			div(id="content"):
 				"I haven't yet put anything on this page"
-			div(#copyright):
+			div(id="copyright"):
 				"Copyright 2012 by Me"
 
 
 ### Loops and Code Reuse
 
-We can pass in attributes as if they're arguments in a function call. RapydML also accepts CSS shorthand for id and class attributes (currently disabled for ID tag due to conflicts with comments and color codes), as you can see in the example above, making your CSS and HTML code more consistent. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
+We can pass in attributes as if they're arguments in a function call. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
 
 	<div id="content">
 		I haven't yet put anything on this page
@@ -57,7 +59,7 @@ We can pass in attributes as if they're arguments in a function call. RapydML al
 
 In RapydML we can accomplish the same thing with less repeated code using a loop:
 
-	div(#content):
+	div(id="content"):
 		"I haven't yet put anything on this page"
 		p:
 			"Compatible with all major browsers:"
@@ -66,7 +68,7 @@ In RapydML we can accomplish the same thing with less repeated code using a loop
 
 But what if our alt attributes don't happen to match our image names? That can be remedied as well, by grouping variables via sub-arrays:
 
-	div(#content):
+	div(id="content"):
 		"I haven't yet put anything on this page"
 		p:
 			"Compatible with all major browsers:"
