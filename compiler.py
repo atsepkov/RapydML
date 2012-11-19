@@ -134,7 +134,7 @@ def do_arithmetic(operation):
 	# what about style?
 	try:
 		result = eval(operation)
-		return str(result)
+		return repr(result)
 	except SyntaxError, NameError:
 		raise ParserError("Command '%s' is not a valid mathematical operation" % operation.strip())
 

@@ -119,11 +119,14 @@ Like many other pre-compilers, RapydML can handle math and color computations fo
 			$color += #222
 			navbutton($i)
 
-Note that `$color` needs to be updated outside of a function. This is because RapydML shadows function variables, like Python. Moving `$color += #222` inside the function will update a local copy of `$color`, which gets discarded after the function terminates. RapydML is smart about colors. You can use the regular `#RRGGBB` format, shorthand `#RGB` form, or even html-accepted color name like `"Brown"`. When using html colors, it's important to use double-quotes around the color, otherwise it will be treated as a regular string. The color name itself, however, is not case sensitive, you can use "DarkBlue" or "darkblue", for example, or even "dArKbLuE". If no color with that name exists the string will be treated as a regular string. Mathematical computations are not limited to colors, you can also use them to compute dimensions or other data:
+Note that `$color` needs to be updated outside of a function. This is because RapydML shadows function variables, like Python. Moving `$color += #222` inside the function will update a local copy of `$color`, which gets discarded after the function terminates. RapydML is smart about colors. You can use the regular `#RRGGBB` format, shorthand `#RGB` form, or even html-accepted color name like `"Brown"`. When using html colors, it's important to use double-quotes around the color, otherwise it will be treated as a regular string. The color name itself, however, is not case sensitive, you can use "DarkBlue" or "darkblue", for example, or even "dArKbLuE". If no color with that name exists the string will be treated as a regular string. Mathematical computations are not limited to colors. You can also use them to compute dimensions of HTML elements, perform computations that get output on the page, or even concatenate strings:
 
 	$height := 100
-	$border := 2
-	$total := $height + $border + 1
+	$padding := 2
+	$total := $height + $padding + 1	# border width of 1
+	
+	$name := 'smiley'
+	$imgurl := 'static/images/' + $name + '.png'
 
 You probably noticed the use of `+=`, which is a shorthand for incrementing. Here are a few other ones:
 
