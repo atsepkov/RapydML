@@ -58,7 +58,7 @@
 		onreadystatechange, onseeked, onseeking, onstalled, onsuspend, ontimeupdate, onvolumechange, onwaiting
 		<.> media, type
 			<.>	href, hreflang, rel, target
-				<a>
+				<a>+
 				<area>	alt, coords, shape
 				<link>	sizes
 			<source>	src

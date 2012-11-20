@@ -227,7 +227,9 @@ class ColorConverter:
 	
 	def to_color(self, num):
 		return hex(num)[2:].zfill(6)
-	
+
+NORMAL = 0
+VERBATIM = 1
 class Method:
 	"""
 	Helper class for generating html-creating methods
@@ -243,10 +245,14 @@ class Method:
 		self.color = color_parser
 		self.copy_heap = copy_heap
 	
-	def add_line(self, line):
+	def add_line(self, line, verbatim=None):
 		# this is where we handle replacing predefined variables
-		trash, line = expand_assignment(line)
-		self.lines.append(line)
+		if verbatim is None:
+			line_type = NORMAL
+			trash, line = expand_assignment(line)
+		else:
+			line_type = VERBATIM
+		self.lines.append((line_type, line))
 	
 	def eval_chunk(self, part):
 		if re.search('[-+*/](?=(?:(?:[^"]*"){2})*[^"]*$)', part) and \
@@ -307,18 +313,20 @@ class Method:
 			#var_hash[self.attributes[i]] = args[i].replace('\\','\\\\')
 			self.heap[self.attributes[i]] = args[i].replace('\\','\\\\')
 		for line in self.lines:
-			# this is where we handle replacing method arguments
-			assignments = line.count(':=')
-			if assignments == 1:
-				operands = line.split(':=')
-				self.heap[operands[0].strip()] = self.eval_line(operands[1].strip())
-				yield None # this line produces no output
-			elif assignments > 1:
-				raise "Multiple assignments on same line aren't allowed"
+			if line[0] == VERBATIM:
+				yield line[1]	# don't run any logic on verbatim lines
 			else:
-				yield self.eval_line(line)
-			
-			#yield replace_variables(line, var_hash)
+				line = line[1]
+				# this is where we handle replacing method arguments
+				assignments = line.count(':=')
+				if assignments == 1:
+					operands = line.split(':=')
+					self.heap[operands[0].strip()] = self.eval_line(operands[1].strip())
+					yield None # this line produces no output
+				elif assignments > 1:
+					raise "Multiple assignments on same line aren't allowed"
+				else:
+					yield self.eval_line(line)
 
 class TemplateEngine:
 	"""
@@ -518,7 +526,8 @@ class Parser:
 				self.creating_method = None
 				return True #finished
 			else:
-				self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):])
+				self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):], 
+						self.current_verbatim)
 		return False
 	
 	def unroll_loop(self):
@@ -698,35 +707,39 @@ class Parser:
 		indent = self.tree.find_indent(line)
 		if self.current_verbatim is None:
 			# this is the first line of verbatim logic
-			self.handle_indent(indent, None)
 			self.current_verbatim = line.strip().split('(')[0].strip(':')
 			self.verbatim_indent = self.tree.find_indent(line)
-			if self.verbatim[self.current_verbatim][0] != '':
-				self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][0]
-			self.last_opened_element = None
-			self.element_stack.append(None)
+			if not self.creating_method:
+				self.handle_indent(indent, None)
+				if self.verbatim[self.current_verbatim][0] != '':
+					self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][0]
+				self.last_opened_element = None
+				self.element_stack.append(None)
 		else:
 			# we're continuing to parse existing verbatim logic
 			if indent > self.verbatim_indent:
 				# still inside verbatim block
+				if not self.creating_method:
+					# doesn't really serve any purpose, this logic is mostly cosmetic to make indentation pretty
+					if self.verbatim[self.current_verbatim][0] == '' and line.find(self.tree.indent_marker) == 0:
+						line = line[len(self.tree.indent_marker):]
 				
-				# doesn't really serve any purpose, this logic is mostly cosmetic to make indentation pretty
-				if self.verbatim[self.current_verbatim][0] == '' and line.find(self.tree.indent_marker) == 0:
-					line = line[len(self.tree.indent_marker):]
-				
-				self.verbatim_buffer += line
+					self.verbatim_buffer += line
 			else:
 				# end of verbatim logic
-				if self.verbatim[self.current_verbatim][1] != '':
-					self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][1]
-				if self.verbatim[self.current_verbatim][2] == self.SINGLELINE:
-					self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
-					self.verbatim_buffer += '\n'
-				self.write(self.verbatim_buffer)
-				self.verbatim_buffer = ''
-				self.current_verbatim = None
-				self.close_last_element() # close verbatim element so it does not screw up the stack
-				self.handle_line(line)
+				if self.creating_method:
+					self.current_verbatim = None
+				else:
+					if self.verbatim[self.current_verbatim][1] != '':
+						self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][1]
+					if self.verbatim[self.current_verbatim][2] == self.SINGLELINE:
+						self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
+						self.verbatim_buffer += '\n'
+					self.write(self.verbatim_buffer)
+					self.verbatim_buffer = ''
+					self.close_last_element() # close verbatim element so it does not screw up the stack
+					self.current_verbatim = None
+					self.handle_line(line)
 	
 	def handle_line(self, line):
 		indent = self.tree.find_indent(line)
@@ -738,13 +751,13 @@ class Parser:
 		#if tag[0] == '$' and tag.find(':=') == -1:
 		#	tag = self.get_variables(tag)
 		
-		if self.creating_method is None \
-		and (self.current_verbatim is not None or \
-		tag.split('(')[0].strip(':') in self.verbatim.keys()):
+		if self.current_verbatim is not None or \
+		tag.split('(')[0].strip(':') in self.verbatim.keys():
 			# verbatim call
 			# note: even comments inside verbatim block get treated verbatim
 			self.handle_verbatim_call(line)
-			return
+			if not self.creating_method:
+				return
 		elif not tag or tag[0] == '#': #line.count('//'):
 			# strip comments
 			# we can't use Python-style comments because we use # for ID and hex values
@@ -776,7 +789,7 @@ class Parser:
 		elif self.creating_method is not None or line[:4] == 'def ':
 			# method definition
 			finished = self.create_method(line)
-			if not finished:
+			if not finished or not line.strip():
 				return
 		elif tag.find(':=') != -1:
 			# variable declaration
@@ -878,6 +891,8 @@ class Parser:
 					raise
 		
 		# terminate non-finished loops and pop off remaining elements, closing our HTML tags
+		if self.current_verbatim is not None:
+			self.handle_verbatim_call('\n')
 		while self.loop_stack:
 			self.unroll_loop()
 		while self.element_stack:
