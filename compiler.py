@@ -228,7 +228,6 @@ class ColorConverter:
 	def to_color(self, num):
 		return hex(num)[2:].zfill(6)
 
-NORMAL = 0
 VERBATIM = 1
 class Method:
 	"""
@@ -481,7 +480,7 @@ class Parser:
 					raise ParserError("'%s' is not a valid markup tag or method name." % self.last_opened_element)
 		
 		if tag_type == NORMAL \
-		and re.search('^%s</%s>' % (self.tree.indent_marker*self.tree.indent, self.last_opened_element), tag):
+		and re.search('^%s</%s>' % (self.tree.indent_to(self.tree.indent), self.last_opened_element), tag):
 			self.write(' />\n', -2)
 		elif tag_type != SINGLE or self.last_opened_element is None:
 			self.write(tag)
@@ -526,8 +525,13 @@ class Parser:
 				self.creating_method = None
 				return True #finished
 			else:
-				self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):], 
-						self.current_verbatim)
+				# check if this is a loop:
+				if self.loop_stack or line.strip()[:4] == 'for ':
+					self.create_loop(line[len(self.tree.indent_marker):])
+				else:
+					# add normal line to method sequence
+					self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):], 
+																self.current_verbatim)
 		return False
 	
 	def unroll_loop(self):
@@ -537,12 +541,17 @@ class Parser:
 		loop_array = loop_token[2]
 		self.tree.indent = loop_indent
 		for arg in loop_array:
-			self.handle_line('%s%s(%s)' % (self.tree.indent_marker*loop_indent, loop_name, arg))
+			loop_call = '%s%s(%s)' % (self.tree.indent_to(loop_indent), loop_name, arg)
+			if self.creating_method:
+				self.method_map[self.creating_method].add_line(loop_call)
+			else:
+				self.handle_line(loop_call)
 	
 	def handle_indent(self, indent, method_name):
-		self.tree.handle_indent(self.tree.indent_to(indent) + '|', \
-			[self.close_last_element], \
-			[self.element_stack.append, method_name])
+		if not self.creating_method:
+			self.tree.handle_indent(self.tree.indent_to(indent) + '|', \
+				[self.close_last_element], \
+				[self.element_stack.append, method_name])
 	
 	def create_loop(self, line):
 		# we can just piggy-back on create_method, since a loop is essentially a repeated function
@@ -573,10 +582,16 @@ class Parser:
 			if indent_diff < 1:
 				# loop terminated, unroll it and execute this line as normal
 				self.unroll_loop()
+				
+				# when this is triggered from create_method(), we remove 1 indentation,
+				# since this line is no longer relevant to the loop, let's add it back
+				if self.creating_method:
+					line = self.tree.indent_to(1) + line
+				
 				self.handle_line(line)
 			else:
 				self.tree.indent = indent
-				self.method_map[loop_name].add_line(line[len(self.tree.indent_marker*(loop_indent+1)):])
+				self.method_map[loop_name].add_line(line[len(self.tree.indent_to(loop_indent+1)):])
 
 	def expand_assignment_ops(self, tag, perform=True):
 		# takes operation of form '$a += 3', converts it to '$a := $a + 3' and evaluates it, assigning new value to $a
@@ -712,7 +727,7 @@ class Parser:
 			if not self.creating_method:
 				self.handle_indent(indent, None)
 				if self.verbatim[self.current_verbatim][0] != '':
-					self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][0]
+					self.verbatim_buffer += self.tree.indent_to(self.verbatim_indent) + self.verbatim[self.current_verbatim][0]
 				self.last_opened_element = None
 				self.element_stack.append(None)
 		else:
@@ -727,19 +742,17 @@ class Parser:
 					self.verbatim_buffer += line
 			else:
 				# end of verbatim logic
-				if self.creating_method:
-					self.current_verbatim = None
-				else:
+				if not self.creating_method:
 					if self.verbatim[self.current_verbatim][1] != '':
-						self.verbatim_buffer += self.tree.indent_marker*self.verbatim_indent + self.verbatim[self.current_verbatim][1]
+						self.verbatim_buffer += self.tree.indent_to(self.verbatim_indent) + self.verbatim[self.current_verbatim][1]
 					if self.verbatim[self.current_verbatim][2] == self.SINGLELINE:
 						self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
 						self.verbatim_buffer += '\n'
 					self.write(self.verbatim_buffer)
 					self.verbatim_buffer = ''
 					self.close_last_element() # close verbatim element so it does not screw up the stack
-					self.current_verbatim = None
-					self.handle_line(line)
+				self.current_verbatim = None
+				self.handle_line(line)
 	
 	def handle_line(self, line):
 		indent = self.tree.find_indent(line)
@@ -782,7 +795,7 @@ class Parser:
 			# verbatim declaration
 			self.handle_verbatim_declaration(tag)
 			return
-		elif self.loop_stack or tag[:4] == 'for ':
+		elif self.creating_method is None and (self.loop_stack or tag[:4] == 'for '):
 			# loop
 			self.create_loop(line)
 			return
