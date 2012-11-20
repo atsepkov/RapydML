@@ -738,7 +738,9 @@ class Parser:
 		#if tag[0] == '$' and tag.find(':=') == -1:
 		#	tag = self.get_variables(tag)
 		
-		if self.current_verbatim is not None or tag.split('(')[0].strip(':') in self.verbatim.keys():
+		if self.creating_method is None \
+		and (self.current_verbatim is not None or \
+		tag.split('(')[0].strip(':') in self.verbatim.keys()):
 			# verbatim call
 			# note: even comments inside verbatim block get treated verbatim
 			self.handle_verbatim_call(line)
