@@ -56,7 +56,7 @@ class LineParser:
 			return element, (flag, attrs)
 		
 
-def load(markup):
+def load(markup, location=None):
 	# take markup and open the relevant file, reading data from it
 	# returns a hash of tags and their allowed attributes
 	# each entry follows this format:
@@ -64,7 +64,9 @@ def load(markup):
 	#		attrlist is an empty list if no attributes are supported, attrlist is None if any attributes are supported
 	
 	# convert markup to filename
-	filename = os.path.join(os.getcwd(), 'markup', markup)
+	if location is None:
+		location = os.getcwd()
+	filename = os.path.join(location, 'markup', markup)
 	
 	# start scanning the rules
 	buffer = ''

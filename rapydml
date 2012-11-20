@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os
+import os, sys
 import argparse
 
 from markuploader import load
@@ -14,7 +14,8 @@ parser.add_argument('input', metavar='INPUT', type=file,
 					help='The RapydML file to compile')
 
 # add all available markup languages to the help menu
-available_markup = os.listdir('markup')
+rapydml_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+available_markup = os.listdir(os.path.join(rapydml_dir, 'markup'))
 group = parser.add_mutually_exclusive_group()
 for lang in available_markup:
 	group.add_argument('--%s' % lang, action='store_true', default=False,
@@ -31,7 +32,7 @@ if markup is None:
 	markup = 'html'
 
 # load correct markup template
-markup_lang = load(markup)
+markup_lang = load(markup, rapydml_dir)
 
 # begin markup
 html = Parser(markup_lang)
