@@ -55,23 +55,37 @@ def get_attr(tag):
 		attr_list = attr_string.split(',')
 		
 		buffer = ''
-		in_string = False
+		in_string = None
 		in_list = False
 		final_attr_list = []
-		for attr in attr_list:
-			attr = attr.strip()
+		for orig_attr in attr_list:
+			attr = orig_attr.strip()
 			if in_string or in_list:
-				buffer += ','+attr
+				# if we're inside a string, don't strip whitespace
+				buffer += ',' + orig_attr
 			else:
 				buffer = attr
 			
-			if attr.count('"') % 2 or attr.count("'") % 2:
-				in_string = not in_string
+			if in_string:
+				length = len(attr)
+				# check that last character is a quote
+				# and second to last is not an escape character
+				if length and attr[-1] == in_string \
+				and length > 1 and attr[-2] != '\\':
+					# string ended
+					in_string = None
+			else:
+				if	attr.count('"') % 2:
+					# double-quoted string started
+					in_string = '"'
+				elif attr.count("'") % 2:
+					# single-quoted string started
+					in_string = "'"
 			
-			if attr[0] == '[':
-				in_list = True
-			if attr[-1] == ']':
-				in_list = False
+				if attr[0] == '[':
+					in_list = True
+				if attr[-1] == ']':
+					in_list = False
 			
 			if not in_string and not in_list:
 				final_attr_list.append(buffer.strip())
@@ -472,10 +486,10 @@ class Parser:
 			try:
 				tag_type = self.valid_tags[self.last_opened_element][0]
 			except KeyError:
-				# WE SHOULD NOT GET IN HERE UNLESS SOMETHING IS WRONG
 				try:
 					tag_type = self.valid_tags['*'][0]
 				except KeyError:
+					# WE SHOULD NOT GET IN HERE UNLESS SOMETHING IS WRONG
 					print "This logic should not trigger, please inform RapydML developers, provide the contents of your .pyml file as well."
 					raise ParserError("'%s' is not a valid markup tag or method name." % self.last_opened_element)
 		
@@ -753,6 +767,8 @@ class Parser:
 					self.close_last_element() # close verbatim element so it does not screw up the stack
 				self.current_verbatim = None
 				self.handle_line(line)
+				return True
+		return False
 	
 	def handle_line(self, line):
 		indent = self.tree.find_indent(line)
@@ -768,30 +784,22 @@ class Parser:
 		tag.split('(')[0].strip(':') in self.verbatim.keys():
 			# verbatim call
 			# note: even comments inside verbatim block get treated verbatim
-			self.handle_verbatim_call(line)
-			if not self.creating_method:
+			last_line_processed = self.handle_verbatim_call(line)
+			
+			# if we're inside method creation, we want to keep going, so this line gets added to
+			# the method
+			if not self.creating_method or last_line_processed:
 				return
-		elif not tag or tag[0] == '#': #line.count('//'):
+		elif not tag or tag[0] == '#':
 			# strip comments
-			# we can't use Python-style comments because we use # for ID and hex values
-			'''
-			loc = line.find('//')
-			subline = line[:loc]
-			#TEMP: this is a naive implementation of quoted string search, we assume all internal quotes
-			# are preceded with \ (i.e. 'Bob\'s Gun' = ok, "Bob's Gun" = bug)
-			if not (subline.count('"')-subline.count('\"'))%2 and \
-			not (subline.count("'")-subline.count("\'"))%2:
-				line = subline
-				tag = line.strip()
-			if not tag:
-				return'''
 			return
 		
 		line = expand_arrays(line)
 		tag = line.strip()
 		
-		if tag.find('verbatim') != -1:
-			# TODO: replace with regex matching to avoid false positives in cases of method names like this_is_not_verbatim_call()
+		# first check is a quick pre-qualifier to avoid expensive regex, second one avoids
+		# false positives like: this_is_not_verbatim_call()
+		if tag.find('verbatim') != -1 and re.search(r'\bverbatim(_line)?\b', tag):
 			# verbatim declaration
 			self.handle_verbatim_declaration(tag)
 			return

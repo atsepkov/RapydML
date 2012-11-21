@@ -106,6 +106,23 @@ If you find yourself reusing the same HTML in multiple places, but not in sequen
 		navbutton('Blog')
 		navbutton('About')
 
+There is another subtle, but extremely useful feature methods have. Method calls can have child elements. These children will get appended inside the last element declared inside the method. For example, if you're creating a page with multiple sections, and the content layout inside each section differs, you can do the following:
+
+	def subsection($title):
+		div(class="sub-section"):
+			$title
+			div(class="section-content")
+	
+	div(id="main"):
+		subsection('Foo'):
+			'This is the foo section, it only has text'
+		subsection('Bar'):
+			img(src="image.png")
+			div:
+				'Bar section has images, and sub-children'
+
+Both, Foo and Bar, will append the children inside of the `section-content` div. This is a very powerful feature, allowing method content not only to get dumped inside of your page, but also wrap around other content in your page - similar to Python decorators. Read the advanced section for some usage examples.
+
 
 ### Arithmetic and Color Manipulation
 
@@ -248,6 +265,63 @@ You don't need to, currently it's a stand alone file. In the future I might add 
 If you decide to use RapydML as the main tool for building your HTML, you might want to be familiar with some advanced features and tricks. If that's the case, this section is for you.
 
 
+## HTML Rendering Optimizations
+
+If you're using web2py/Rails/Django or similar engine, you might have noticed that RapydML can handle some of the logic you previously relied on your templating engine for (things like combining content from multiple page templates/chunks, repeating portions of your HTML within the same page, etc.). You might be curious which solution is better. For that we'll need to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
+
+Some of that niche, however, can be better addressed by RapydML. For example, you're probably familiar with the following line from Django (or its equivalent web2py or Rails):
+
+	{% extends basic.html %}
+
+For those unfamiliar with it, the above line includes HTML from basic.html inside of the current page. This is a useful technique to avoid unnecessary copies of HTML that's common to multiple pages (this includes navigation menus, website logo, etc.). The above logic, however, can also be substituted with RapydML's `import` statement, importing RapydML logic from another page. For example, I can create a template.pyml file, declararing a function for generating a chunk of reusable HTML inside of it, and then invoke that function in every place I want that HTML to appear. Which solution is better?
+
+If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles, smart engines will probably cache this data), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.
+
+
+## Writing DRY HTML/XML
+
+RapydML does not evaluate the logic inside a method until it actually runs (gets invoked by logic not wrapped in a method). This means that you can call methods from other methods before they're declared. While subtle, this is a very useful feature. You can use this to take the importing idea presented in previous section a step further and do some really neat things with your website. For example, if you have a `template.pyml` file that defines `header_html()` and `footer_html()` methods (where header will take care of `<head>` declaration as well as the banner), your `index.pyml' will probably look like this:
+
+	import template
+	
+	header_html():
+		div(id="content"):
+			'My page content'
+			img(src="smiley.png")
+		
+		# resides inside header because header implements the <body> tag
+		footer_html()
+
+But you can do even better than that. Instead of implementing `header_html()` and `footer_html()`, let's write our `template.pyml` as follows:
+
+	def page():
+		html:
+			head:
+				title:
+					'Welcome to my website'
+			body:
+				div(id="header")
+					img(src="banner.png")
+					
+				div(id="content"):
+					content()
+				
+				div(id="footer")
+					'Copyright info'
+
+If you're observant, you probably noticed the undefined `content()` method. That method will be defined by our `index.pyml` (and any other page based on this template), along with a call to `page()`, which will wrap the content inside of our template and generate the actual page:
+
+	import template
+	
+	def content():
+		'My page content'
+		img(src="smiley.png")
+	
+	page()
+
+The result is that our pages are very clean and all would-be repetitive content is in one place. In fact, pyjeon.com website is written using this technique.
+
+
 ## Customizing Markup
 
 RapydML is not limited to HTML. If you open up the `markup` directory, you will notice 3 files: `any`, `html`, and `html5`. `html` is the default markup RapydML assumes if you omit the markup modifier when compiling your `.pyml` file. This markup is designed to limit you to valid HTML tags, but does not enforce any attribute limitations or HTML versions. `html5` is much stricter, enforcing valid HTML5 tags as well as attributes. Finally, `any` is the most relaxed of the 3, allowing you to use any tag with any attributes. `any` markup assumes every tag which has not been explicitly defined as a method (via the use of `def` keyword inside of your `.pyml` file) to be a valid markup tag.
@@ -353,15 +427,3 @@ Note that wildcard tag is independent of wilcard attribute character. You can do
 					# any attributes (note that this only applies to elements that have
 					# not been explicitly mentioned in the markup)
 
-
-## HTML Rendering Optimizations
-
-If you're using web2py/Rails/Django or similar engine, you might have noticed that RapydML can handle some of the logic you previously relied on your templating engine for (things like combining content from multiple page templates/chunks, repeating portions of your HTML within the same page, etc.). You might be curious which solution is better. For that we'll need to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
-
-Some of that niche, however, can be better addressed by RapydML. For example, you're probably familiar with the following line from Django (or its equivalent web2py or Rails):
-
-	{% extends basic.html %}
-
-For those unfamiliar with it, the above line includes HTML from basic.html inside of the current page. This is a useful technique to avoid unnecessary copies of HTML that's common to multiple pages (this includes navigation menus, website logo, etc.). The above logic, however, can also be substituted with RapydML's `import` statement, importing RapydML logic from another page. For example, I can create a template.pyml file, declararing a function for generating a chunk of reusable HTML inside of it, and then invoke that function in every place I want that HTML to appear. Which solution is better?
-
-If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles, smart engines will probably cache this data), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.
