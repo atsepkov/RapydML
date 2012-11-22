@@ -72,7 +72,7 @@ But what if our alt attributes don't happen to match our image names? That can b
 		"I haven't yet put anything on this page"
 		p:
 			"Compatible with all major browsers:"
-			for $item in [[firefox, Firefox], [chrome, , Chrome], [ie, Internet Explorer], [opera, Opera], [safari, Safari]]:
+			for $item in [[firefox, Firefox], [chrome, Chrome], [ie, Internet Explorer], [opera, Opera], [safari, Safari]]:
 				img(src="$item[0].jpg", alt="$item[1]")
 
 
