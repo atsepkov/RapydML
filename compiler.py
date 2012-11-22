@@ -540,7 +540,7 @@ class Parser:
 				return True #finished
 			else:
 				# check if this is a loop:
-				if self.loop_stack or line.strip()[:4] == 'for ':
+				if not self.current_verbatim and (self.loop_stack or line.strip()[:4] == 'for '):
 					self.create_loop(line[len(self.tree.indent_marker):])
 				else:
 					# add normal line to method sequence
