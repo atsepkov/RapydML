@@ -92,7 +92,7 @@
 			<canvas>+
 			<.>	src
 				<embed>		type
-				<iframe>	name, sandbox, seamless, srcdoc
+				<iframe>+	name, sandbox, seamless, srcdoc
 				<img>		alt, crossorigin, ismap, usemap
 				<input>
 			<object>	data, form, name, type, usemap

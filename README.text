@@ -183,10 +183,10 @@ Now, should we choose to add raw JavaScript to our code, we can write it as foll
 			label:
 				'Text goes here'
 
-As soon as indentation resets to same level or higher as the verbatim tag, the raw JavaScript stops, and we start interpreting tags again. There is also verbatim_line() method available, that works the same way, but condenses the code into a single line by replacing '\n' with spaces and removing indentation. This is useful when you want to compress the chunk of raw code into a single line.
+As soon as indentation resets to same level or higher as the verbatim tag, the raw JavaScript stops, and we start interpreting tags again. There is also verbatim_line() method available, that works the same way, but condenses the code into a single line by replacing `\n` with spaces and removing indentation. This is useful when you want to compress the chunk of raw code into a single line.
 
 
-## Q: I don't really write raw HTML anymore, I use Django/Web2py/Rails/etc. template engine. What does RapydML buy me?
+## Q: I don't really write raw HTML anymore, I use Django/Web2py/Rails, etc. template engine. What does RapydML buy me?
 
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
 
@@ -197,7 +197,7 @@ We now can invoke a Django for loop as follows:
 
 	django.for(i, array):
 
-Note that %s is used to specify the insertion of passed in arguments later. By passing a template to our TemplateEngine constructor, we tell it to wrap every call to django inside '<% %>' tags. Note also how a typical for loop gets declared. The fact that we called it 'django.for' is just for convenience, we could have easily called it 'django.loop' or any other keyword. What is important, however, is the arguments we pass to the creation method. The first argument represents the beginning of this block, the second represents the end of the block. In cases where the end block is irrelevant (such as <%= item %> tag), you can omit the second argument:
+Note that %s is used to specify the insertion of passed in arguments later, also note that %% is used to signify the actual percent sign character (like in Python, when using similar syntax). By passing a template to our TemplateEngine constructor, we tell it to wrap every call to django inside `<% %>` tags. Note also how a typical for loop gets declared. The fact that we called it `django.for` is just for convenience, we could have easily called it `django.loop` or any other keyword. What is important, however, is the arguments we pass to the creation method. The first argument represents the beginning of this block, the second represents the end of the block. In cases where the end block is irrelevant (such as `<%= item %>` tag), you can omit the second argument:
 
 	django.out = create('= %s ')
 
@@ -227,7 +227,7 @@ Now we can use the def method to define any methods we want inside our template.
 	ul:
 		web2py.out(itemize1('www.google.com'))
 
-While the code in this example isn't shorter than the original, I think you will agree that it is cleaner. That's cool and all, but if you had to include language template definitions in every HTML file you write, you would probably lose interest in RapydML pretty fast. To remedy this, you can use the 'import' statement. Feel free to take all your Django/Web2py/Rails definitions and dump them into a separate file, naming it django.pyml, for example. Now add the following line to each one of your files that needs to use it:
+While the code in this example isn't shorter than the original, I think you will agree that it is cleaner. That's cool and all, but if you had to include language template definitions in every HTML file you write, you would probably lose interest in RapydML pretty fast. To remedy this, you can use the `import` statement. Feel free to take all your Django/Web2py/Rails definitions and dump them into a separate file, naming it django.pyml, for example. Now add the following line to each one of your files that needs to use it:
 
 	import django
 
@@ -280,7 +280,7 @@ If you're an experienced web developer, you probably know that on most hosting s
 
 ## Writing DRY HTML/XML
 
-RapydML does not evaluate the logic inside a method until it actually runs (gets invoked by logic not wrapped in a method). This means that you can call methods from other methods before they're declared. While subtle, this is a very useful feature. You can use this to take the importing idea presented in previous section a step further and do some really neat things with your website. For example, if you have a `template.pyml` file that defines `header_html()` and `footer_html()` methods (where header will take care of `<head>` declaration as well as the banner), your `index.pyml' will probably look like this:
+RapydML does not evaluate the logic inside a method until it actually runs (gets invoked by logic not wrapped in a method). This means that you can call methods from other methods before they're declared. While subtle, this is a very useful feature. You can use this to take the importing idea presented in previous section a step further and do some really neat things with your website. For example, if you have a `template.pyml` file that defines `header_html()` and `footer_html()` methods (where header will take care of `<head>` declaration as well as the banner), your `index.pyml` will probably look like this:
 
 	import template
 	

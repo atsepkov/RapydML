@@ -12,7 +12,7 @@ def is_number(s):
 
 def is_valid_name(s):
 	# returns true if name follows Pythonic standard
-	return not not re.match('^[a-zA-Z_][a-zA-Z0-9]*$', s)
+	return not not re.match('^[a-zA-Z_][a-zA-Z0-9_]*$', s)
 
 def expand_arrays(tag):
 	# expands shorthand arrays such as [1:5] into full-array [1,2,3,4,5]
@@ -444,6 +444,17 @@ class Parser:
 		self.verbatim_indent = 0
 		self.verbatim_buffer = ''
 	
+	def get_debug_state(self):
+		# method used for debugging
+		print "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+		print "element_stack", self.element_stack
+		print "last_opened_element", self.last_opened_element
+		print "creating_method", self.creating_method
+		print "current_verbatim", self.current_verbatim
+		print "tree.indent", self.tree.indent
+		print "tree.no_stack", self.tree.no_stack
+		print "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+	
 	def write(self, line, overlap = 0):
 		# helper method for writing to file, all writes should be done through it to ensure a single point
 		# of entry
@@ -561,11 +572,17 @@ class Parser:
 			else:
 				self.handle_line(loop_call)
 	
-	def handle_indent(self, indent, method_name):
+	def handle_indent(self, indent, method_name, no_end=False):
 		if not self.creating_method:
+			if no_end: 	# happens during template engine one-liners
+				def noop(arg):
+					pass
+				ending_logic = [noop , None]
+			else:
+				ending_logic = [self.element_stack.append, method_name]
 			self.tree.handle_indent(self.tree.indent_to(indent) + '|', \
 				[self.close_last_element], \
-				[self.element_stack.append, method_name])
+				ending_logic)
 	
 	def create_loop(self, line):
 		# we can just piggy-back on create_method, since a loop is essentially a repeated function
@@ -585,7 +602,7 @@ class Parser:
 			
 			for i in range(len(array)):
 				array[i] = array[i].strip()
-			loop_name = 'loop_def_%s' % self.loop_index
+			loop_name = 'rapydml_loop_def_%s' % self.loop_index
 			self.loop_stack.append((loop_name, indent, array))
 			self.method_map[loop_name] = Method([var], False, self.color) # loops see/access global var space
 			self.loop_index += 1
@@ -596,12 +613,6 @@ class Parser:
 			if indent_diff < 1:
 				# loop terminated, unroll it and execute this line as normal
 				self.unroll_loop()
-				
-				# when this is triggered from create_method(), we remove 1 indentation,
-				# since this line is no longer relevant to the loop, let's add it back
-				if self.creating_method:
-					line = self.tree.indent_to(1) + line
-				
 				self.handle_line(line)
 			else:
 				self.tree.indent = indent
@@ -626,8 +637,16 @@ class Parser:
 				self.imported_files.append(tokens[1])
 				self.parse(tokens[1].replace('.', '/') +'.pyml', True)
 			except IOError:
-				#TODO: make it try to open in parser's directory as well
-				raise ParserError("Can't import '%s', module doesn't exist" % tokens[1])
+				# failed importing from working directory, try importing from rapydml directory
+				cur_dir = os.getcwd()
+				try:
+					os.chdir(rapydml_dir)
+					self.imported_files.append(tokens[1])
+					self.parse(tokens[1].replace('.', '/') +'.pyml', True)
+				except IOError:
+					raise ParserError("Can't import '%s', module doesn't exist" % tokens[1])
+				finally:
+					os.chdir(cur_dir)
 	
 	def create_template_engine(self, line):
 		# creates a new set of rules for a templating engine, such as Django, Web2py, or Rails
@@ -639,7 +658,7 @@ class Parser:
 		template = pair[1][pair[1].find('(')+1:pair[1].rfind(')')-1].strip().strip("'").strip('"')
 		self.template_engines[pair[0].rstrip()] = TemplateEngine(template)
 	
-	def parse_template_engine_call(self, line, indent):
+	def parse_template_engine_definition(self, line):
 		compressed = line.replace(' ','')
 		if compressed.find('create(') != -1:
 			# add a template to existing template engine
@@ -651,7 +670,7 @@ class Parser:
 					self.template_engines[engine].add_method(template, attr[0][1:-1], attr[1][1:-1])
 			except KeyError:
 				raise ParserError("Attempting to add a method to a TemplateEngine prior to declaration")
-		elif compressed.find('append(') != -1:
+		else: # append()
 			# append additional logic to a template
 			engine, template, method_call, attr = parse_template_engine_method_declaration(line)
 			original_pair = method_call.split('.') # we only care about 1st 2 args
@@ -665,31 +684,67 @@ class Parser:
 				self.template_engines[engine].add_method(template, attr[0][1:-1])
 			except KeyError:
 				raise ParserError("Attempting to add a method to a TemplateEngine prior to declaration")
-		else:
-			try:
-				# invoke template engine method
-				whitespace = self.tree.indent_to(indent)
-				method_pair = line.split('(')[0].rstrip().rsplit('.', 1)
-				if not self.template_engines[method_pair[0]].is_submethod(method_pair[1], indent):
-					end_method = self.template_engines[method_pair[0]].end_method(method_pair[1])
-					if end_method is None:
-						self.tree.indent = indent
-					else:
-						self.handle_indent(indent, whitespace + end_method)
-				else:
-					#note the indent+1, we want to close inner logic, but not the method itself
-					endtag = self.template_engines[method_pair[0]].end_method(method_pair[1], False)
-					if endtag is None:
-						self.handle_indent(indent+1, None)
-						self.element_stack.pop()
-					else:
-						self.handle_indent(indent+1, whitespace + endtag)
-				attr = get_attr(line)
-				self.write(whitespace + self.template_engines[method_pair[0]].call_method(method_pair[1], attr, indent))
-				#self.element_stack.append(whitespace + self.template_engines[method_pair[0]].end_method(method_pair[1]))
-			except (KeyError, IndexError, TypeError):
-				raise ParserError("Improper TemplateEngine method declaration or invocation")
+		
+		# helper method for checking if the line involves variable assignment and/or reassignment
+		if line.find(':=') != -1:
+			# variable declaration
+			self.set_variable(line)
+			return
+		elif line.find('+=') != -1 or line.find('-=') != -1 or line.find('*=') != -1 or line.find('/=') != -1:
+			# variable increment
+			res = self.expand_assignment_ops(line)
+			line = self.var_map[res]
 	
+	def parse_template_engine_call(self, line, indent):
+		compressed = line.replace(' ','')
+		try:
+			# invoke template engine method
+			if indent is None:
+				whitespace = ''
+			else:
+				whitespace = self.tree.indent_to(indent)
+			method_pair = line.split('(')[0].rstrip().rsplit('.', 1)
+			end_method = self.template_engines[method_pair[0]].end_method(method_pair[1])
+			if indent is not None:
+				if end_method:
+					# full-line declaration
+					ending_tag = whitespace + end_method
+				else:
+					# invocation that's a subset of the line
+					ending_tag = None
+				self.handle_indent(indent, ending_tag)
+			if not self.template_engines[method_pair[0]].is_submethod(method_pair[1], indent):
+				# this is a method created using 'create()'
+				#end_method = self.template_engines[method_pair[0]].end_method(method_pair[1])
+				if end_method is None:
+					if indent is not None:
+						self.tree.indent = indent
+				else:
+					if indent is None:
+						# this will happen when we try something like:
+						# div(src=django.for(a, b))
+						raise ParserError("'%s' method requires a closing tag, it can't be used as part of other logic on the line" % method_pair[1])
+					#self.handle_indent(indent, whitespace + end_method)
+			else:
+				if indent is None:
+					raise ParserError("Can't use '%s' as part of other logic on the line because it's a branch of an existing method" % method_pair[1])
+				# this is a sub-method of a verbatim method (i.e. 'else' is a submethod of 'if')
+				# submethods are created using 'append()'
+				#note the indent+1, we want to close inner logic, but not the method itself
+				endtag = self.template_engines[method_pair[0]].end_method(method_pair[1], False)
+				if endtag is None:
+					self.handle_indent(indent+1, None)
+					self.element_stack.pop()
+				else:
+					self.handle_indent(indent+1, whitespace + endtag)
+			attr = get_attr(line)
+			return whitespace + self.template_engines[method_pair[0]].call_method(method_pair[1], attr, indent)
+			#self.element_stack.append(whitespace + self.template_engines[method_pair[0]].end_method(method_pair[1]))
+		#except (KeyError, IndexError, TypeError):
+		except ParserError:
+			raise ParserError("Improper TemplateEngine method declaration or invocation")
+
+		# repeated from the definition method, rewrite to make the code more DRY
 		# helper method for checking if the line involves variable assignment and/or reassignment
 		if line.find(':=') != -1:
 			# variable declaration
@@ -783,15 +838,24 @@ class Parser:
 		if self.current_verbatim is not None or \
 		tag.split('(')[0].strip(':') in self.verbatim.keys():
 			# verbatim call
-			# note: even comments inside verbatim block get treated verbatim
-			last_line_processed = self.handle_verbatim_call(line)
+			if self.loop_stack and tag.split('(')[0].strip(':') in self.verbatim.keys():
+				# in case verbatim ended a loop, we want to handle that
+				# we can return right after, since the loop terminator will automatically
+				# call handle_line() again with verbatim tag
+				self.create_loop(line)
+				return
+			else:
+				# note: even comments inside verbatim block get treated verbatim
+				last_line_processed = self.handle_verbatim_call(line)
 			
 			# if we're inside method creation, we want to keep going, so this line gets added to
 			# the method
 			if not self.creating_method or last_line_processed:
 				return
 		elif not tag or tag[0] == '#':
-			# strip comments
+			# strip comments and blank lines
+			if not tag and self.creating_method:
+				self.create_method(line) # finish methods if we need to
 			return
 		
 		line = expand_arrays(line)
@@ -828,10 +892,26 @@ class Parser:
 			# template class declaration
 			self.create_template_engine(tag)
 			return
-		elif tag.find('.') != -1 and tag.split('.')[0].isalnum() and tag.split('.')[0][0] in string.letters:
-			# template method declaration or call
-			self.parse_template_engine_call(tag, indent)
-			return
+		elif tag.find('.') != -1:
+			# this regex will find all occurences of template engine calls in the form of:
+			# template_engine.template_method(.*)
+			# as long as the method is not in a string
+			# and matching the parentheses correctly even if items inside use parentheses, up to 1 level deep
+			if tag.find('.append(') != -1 or tag.find('create(') != -1:
+				self.parse_template_engine_definition(tag)
+				return
+			else:
+				substitutions = re.findall(r'^[^\'"]*(?:([\'"])[^\'"]*\1)*[^\'"]*(\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b\([^()]*(\(.*?\))*[^()]*\))', tag)
+				if len(substitutions) == 1 and tag.find(substitutions[0][1]) == 0:
+					line = self.parse_template_engine_call(tag, indent)
+				else:
+					for item in substitutions:
+						# template method declaration or call
+						line = line.replace(item[1], self.parse_template_engine_call(item[1], None).strip('\n'))
+				
+				if substitutions:
+					self.write(line)
+					return
 		
 		tag = self.get_variables(tag)
 		
@@ -880,8 +960,10 @@ class Parser:
 		self.write(whitespace + starttag)
 	
 	def parse(self, filename, module=False):
+		global rapydml_dir
 		# we assume here that the file is relatively small compared to our allowed buffer
 		if not module:
+			rapydml_dir = os.getcwd()
 			self.__init__(self.valid_tags) #reset
 			os.chdir(os.path.abspath(os.path.dirname(filename)))
 		line_num = 0
@@ -902,11 +984,13 @@ class Parser:
 					
 					self.handle_line(line)
 				except ParserError, (error):
+					#self.get_debug_state()
 					print "Error in %s: line %d: %s" % (filename, line_num, error.message)
 					print repr(line)
 					sys.exit()
 				except:
 					# on all other errors
+					#self.get_debug_state()
 					print "Error in %s: line %d: %s" % (filename, line_num, "'%s' caused the following uncaught exception:" % line.strip())
 					print repr(line)
 					raise
