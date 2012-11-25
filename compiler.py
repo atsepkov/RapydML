@@ -3,6 +3,9 @@ import string
 from util import IndentParser, ParserError
 from markuploader import NORMAL, SINGLE
 
+# modules imported for convenience when using python.* within RapydML
+import math
+
 def is_number(s):
 	try:
 		float(s)
@@ -127,7 +130,11 @@ def replace_variables(code, var_hash, ignore_list=[]):
 			code = re.sub('(?<!\\\\)\%s(?![A-Za-z0-9_])' % var, var_hash[var], code)
 		except KeyError:
 			raise ParserError("Variable %s used prior to definition" % var)
-			
+	
+	if code.find('python.') != -1:
+		# use of python method
+		code = eval_python(code)		
+	
 	return code
 
 def expand_assignment(tag):
@@ -206,6 +213,14 @@ def create_tag(element, attributes):
 		starttag = '<%s>\n' % element
 	endtag = '</%s>\n' % element
 	return starttag, endtag
+
+REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
+def eval_python(line):
+	substrings = re.findall(r'(\bpython\..*?%s)' % REGEX_NESTED_PAREN, line)
+	for substring in substrings:
+		mystr = repr(eval(substring[7:]))
+		line = line.replace(substring, mystr)
+	return line
 
 class ColorConverter:
 	"""
@@ -303,6 +318,7 @@ class Method:
 	def eval_line(self, line):
 		# returns evaluated version of the line
 		line = replace_variables(line, self.heap)
+		
 		#TEMP: this tester is naive, it assumes the strings will not contain ' or " characters inside of them
 		#BUG: we need to resolve things like div(#tag-id,#f00+#001)
 		if re.search('^[A-Za-z_][A-Za-z0-9_]*[ ]*\(.*\)', line.strip()):
@@ -330,6 +346,7 @@ class Method:
 				yield line[1]	# don't run any logic on verbatim lines
 			else:
 				line = line[1]
+				
 				# this is where we handle replacing method arguments
 				assignments = line.count(':=')
 				if assignments == 1:
@@ -893,15 +910,22 @@ class Parser:
 			self.create_template_engine(tag)
 			return
 		elif tag.find('.') != -1:
-			# this regex will find all occurences of template engine calls in the form of:
-			# template_engine.template_method(.*)
-			# as long as the method is not in a string
-			# and matching the parentheses correctly even if items inside use parentheses, up to 1 level deep
+			if tag.find('python.') != -1:
+				# use of python method
+				line = eval_python(line)
+				tag = line.strip()
+			
+			# continue parsing, there could be other instances of '.'
 			if tag.find('.append(') != -1 or tag.find('create(') != -1:
+				# template engine declaration
 				self.parse_template_engine_definition(tag)
 				return
 			else:
-				substitutions = re.findall(r'^[^\'"]*(?:([\'"])[^\'"]*\1)*[^\'"]*(\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b\([^()]*(\(.*?\))*[^()]*\))', tag)
+				# this regex will find all occurences of template engine calls in the form of:
+				# template_engine.template_method(.*)
+				# as long as the method is not in a string
+				# and matching the parentheses correctly even if items inside use parentheses, up to 1 level deep
+				substitutions = re.findall(r'^[^\'"]*(?:([\'"])[^\'"]*\1)*[^\'"]*(\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b%s)' % REGEX_NESTED_PAREN, tag)
 				if len(substitutions) == 1 and tag.find(substitutions[0][1]) == 0:
 					line = self.parse_template_engine_call(tag, indent)
 				else:
