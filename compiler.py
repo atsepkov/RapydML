@@ -6,6 +6,9 @@ from markuploader import NORMAL, SINGLE
 # modules imported for convenience when using python.* within RapydML
 import math
 
+
+DEBUG = False
+
 def is_number(s):
 	try:
 		float(s)
@@ -263,7 +266,7 @@ class Method:
 	Helper class for generating html-creating methods
 	"""
 	
-	def __init__(self, attributes, copy_heap, color_parser):
+	def __init__(self, attributes, copy_heap, color_parser, name):
 		# create a new method that can be invoked later
 		# attributes: set of parameters this method will take in (this will be defined at function invocation)
 		# heap: the memory space this method sees
@@ -272,6 +275,7 @@ class Method:
 		self.lines = []
 		self.color = color_parser
 		self.copy_heap = copy_heap
+		self.name = name
 	
 	def add_line(self, line, verbatim=None):
 		# this is where we handle replacing predefined variables
@@ -340,7 +344,11 @@ class Method:
 		for i in range(len(self.attributes)):
 			#TEMP: the \ replacing is a temporary quickfix for misunderstood problem of Python interpreting the string when it shouldn't
 			#var_hash[self.attributes[i]] = args[i].replace('\\','\\\\')
-			self.heap[self.attributes[i]] = args[i].replace('\\','\\\\')
+			try:
+				self.heap[self.attributes[i]] = args[i].replace('\\','\\\\')
+			except IndexError:
+				raise ParserError("Method '%s' expects %s attributes, %s given." % \
+									(self.name, len(self.attributes), len(args)))
 		for line in self.lines:
 			if line[0] == VERBATIM:
 				yield line[1]	# don't run any logic on verbatim lines
@@ -464,6 +472,8 @@ class Parser:
 	def get_debug_state(self):
 		# method used for debugging
 		print "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+		print "var_map", self.var_map
+		print "method_map", self.method_map.keys()
 		print "element_stack", self.element_stack
 		print "last_opened_element", self.last_opened_element
 		print "creating_method", self.creating_method
@@ -553,14 +563,14 @@ class Parser:
 			element, attributes = parse_definition(line[4:])
 			
 			if element[0] not in string.letters + '_' or not (element.replace('_','').isalnum()):
-				raise ParserError("Method name must be alphanumeric and start with a letter")
+				raise ParserError("Method name must be alphanumeric with underscores and start with a letter or underscore")
 			
 			if element in self.valid_tags.keys():
 				raise ParserError("Can't create method named '%s', it's a reserved HTML element name" % element)
 			
 			self.creating_method = element
 			# methods access shadowed variables to prevent overwriting globals
-			self.method_map[element] = Method(attributes, True, self.color)
+			self.method_map[element] = Method(attributes, True, self.color, element)
 				
 		else:
 			if indent == 0:
@@ -843,6 +853,8 @@ class Parser:
 		return False
 	
 	def handle_line(self, line):
+		if DEBUG:
+			print self.element_stack, '|%s|' % self.creating_method, line
 		indent = self.tree.find_indent(line)
 		whitespace = self.tree.indent_to(indent)
 		
@@ -1008,13 +1020,15 @@ class Parser:
 					
 					self.handle_line(line)
 				except ParserError, (error):
-					#self.get_debug_state()
+					if DEBUG:
+						self.get_debug_state()
 					print "Error in %s: line %d: %s" % (filename, line_num, error.message)
 					print repr(line)
 					sys.exit()
 				except:
 					# on all other errors
-					#self.get_debug_state()
+					if DEBUG:
+						self.get_debug_state()
 					print "Error in %s: line %d: %s" % (filename, line_num, "'%s' caused the following uncaught exception:" % line.strip())
 					print repr(line)
 					raise
