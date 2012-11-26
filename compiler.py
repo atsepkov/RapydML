@@ -7,7 +7,19 @@ from markuploader import NORMAL, SINGLE
 import math
 
 
+# change this to True to see additional output during compilation
 DEBUG = False
+
+
+# variables used by verbatim
+VERBATIM = 1
+MULTI_LINE = 0
+SINGLE_LINE = 1
+GLOBAL_VARS = 0
+METHOD_VARS = 1
+
+# variables used by regex
+REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
 
 def is_number(s):
 	try:
@@ -217,7 +229,6 @@ def create_tag(element, attributes):
 	endtag = '</%s>\n' % element
 	return starttag, endtag
 
-REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
 def eval_python(line):
 	substrings = re.findall(r'(\bpython\..*?%s)' % REGEX_NESTED_PAREN, line)
 	for substring in substrings:
@@ -260,7 +271,6 @@ class ColorConverter:
 	def to_color(self, num):
 		return hex(num)[2:].zfill(6)
 
-VERBATIM = 1
 class Method:
 	"""
 	Helper class for generating html-creating methods
@@ -277,14 +287,14 @@ class Method:
 		self.copy_heap = copy_heap
 		self.name = name
 	
-	def add_line(self, line, verbatim=None):
+	def add_line(self, line, verbatim=None, verbatim_vars=[]):
 		# this is where we handle replacing predefined variables
 		if verbatim is None:
 			line_type = NORMAL
 			trash, line = expand_assignment(line)
 		else:
 			line_type = VERBATIM
-		self.lines.append((line_type, line))
+		self.lines.append((line_type, line, verbatim_vars))
 	
 	def eval_chunk(self, part):
 		if re.search('[-+*/](?=(?:(?:[^"]*"){2})*[^"]*$)', part) and \
@@ -351,7 +361,13 @@ class Method:
 									(self.name, len(self.attributes), len(args)))
 		for line in self.lines:
 			if line[0] == VERBATIM:
-				yield line[1]	# don't run any logic on verbatim lines
+				verbatim_line = line[1]
+				
+				# replace variables we specified
+				for variable in line[2]:
+					verbatim_line = re.sub(r'\%s(?![A-Za-z0-9_])' % variable, self.heap[variable], verbatim_line)
+				
+				yield verbatim_line		# don't run any logic on verbatim lines
 			else:
 				line = line[1]
 				
@@ -468,6 +484,7 @@ class Parser:
 		self.current_verbatim = None
 		self.verbatim_indent = 0
 		self.verbatim_buffer = ''
+		self.verbatim_vars = ([], [])
 	
 	def get_debug_state(self):
 		# method used for debugging
@@ -572,7 +589,7 @@ class Parser:
 			# methods access shadowed variables to prevent overwriting globals
 			self.method_map[element] = Method(attributes, True, self.color, element)
 				
-		else:
+		else:	# regular line inside a method
 			if indent == 0:
 				self.creating_method = None
 				return True #finished
@@ -583,7 +600,8 @@ class Parser:
 				else:
 					# add normal line to method sequence
 					self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):], 
-																self.current_verbatim)
+																self.current_verbatim,
+																self.verbatim_vars[METHOD_VARS])
 		return False
 	
 	def unroll_loop(self):
@@ -631,7 +649,7 @@ class Parser:
 				array[i] = array[i].strip()
 			loop_name = 'rapydml_loop_def_%s' % self.loop_index
 			self.loop_stack.append((loop_name, indent, array))
-			self.method_map[loop_name] = Method([var], False, self.color) # loops see/access global var space
+			self.method_map[loop_name] = Method([var], False, self.color, loop_name) # loops see/access global var space
 			self.loop_index += 1
 		else:					# command inside the loop or outside (loop termination)
 			loop_name = self.loop_stack[-1][0]
@@ -782,8 +800,6 @@ class Parser:
 			res = self.expand_assignment_ops(line)
 			line = self.var_map[res]
 	
-	MULTILINE = 0
-	SINGLELINE = 1
 	def handle_verbatim_declaration(self, tag):
 		assignment_pair = tag.split('=', 1)
 		newtag = assignment_pair[0].strip()
@@ -793,6 +809,8 @@ class Parser:
 			# no args were passed, this version has no outer tags wrapping the text
 			starttag = endtag = ''
 		elif length == 1:
+			# received 1 argument, it's a tag to use as a template
+			
 			# TODO: eventually we want this to also check declared methods, if available, first
 			#if attributes[0] in self.template_engines.keys():
 			#	endtag = self.template_engines[attributes[0]].tag_format %
@@ -810,15 +828,29 @@ class Parser:
 		
 		# append to verbatim format in (start_tag, end_tag, type) format
 		if element == 'verbatim_line':
-			self.verbatim[newtag] = (starttag, endtag, self.SINGLELINE)
+			self.verbatim[newtag] = (starttag, endtag, SINGLE_LINE)
 		else:
-			self.verbatim[newtag] = (starttag, endtag, self.MULTILINE)
+			self.verbatim[newtag] = (starttag, endtag, MULTI_LINE)
 	
 	def handle_verbatim_call(self, line):
 		indent = self.tree.find_indent(line)
 		if self.current_verbatim is None:
 			# this is the first line of verbatim logic
-			self.current_verbatim = line.strip().split('(')[0].strip(':')
+			
+			# set verbatim, get replaceable variables and check that they exist
+			self.current_verbatim, verbatim_vars = parse_definition(line.strip())
+			self.verbatim_vars = ([], [])
+			for variable in verbatim_vars:
+				try:
+					self.var_map[variable]
+					self.verbatim_vars[GLOBAL_VARS].append(variable)
+				except KeyError:
+					if self.creating_method \
+					and variable in self.method_map[self.creating_method].attributes:
+						self.verbatim_vars[METHOD_VARS].append(variable)
+						continue
+					ParserError("Variable '%s' used prior to declaration" % variable)
+			
 			self.verbatim_indent = self.tree.find_indent(line)
 			if not self.creating_method:
 				self.handle_indent(indent, None)
@@ -835,13 +867,17 @@ class Parser:
 					if self.verbatim[self.current_verbatim][0] == '' and line.find(self.tree.indent_marker) == 0:
 						line = line[len(self.tree.indent_marker):]
 				
+					# plug in the variables, if they appear on this line
+					for variable in self.verbatim_vars[GLOBAL_VARS]:
+						line = re.sub(r'\%s(?![A-Za-z0-9_])' % variable, self.var_map[variable], line)
+					
 					self.verbatim_buffer += line
 			else:
 				# end of verbatim logic
 				if not self.creating_method:
 					if self.verbatim[self.current_verbatim][1] != '':
 						self.verbatim_buffer += self.tree.indent_to(self.verbatim_indent) + self.verbatim[self.current_verbatim][1]
-					if self.verbatim[self.current_verbatim][2] == self.SINGLELINE:
+					if self.verbatim[self.current_verbatim][2] == SINGLE_LINE:
 						self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
 						self.verbatim_buffer += '\n'
 					self.write(self.verbatim_buffer)

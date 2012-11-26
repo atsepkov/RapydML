@@ -207,6 +207,44 @@ Now, should we choose to add raw JavaScript to our code, we can write it as foll
 As soon as indentation resets to same level or higher as the verbatim tag, the raw JavaScript stops, and we start interpreting tags again. There is also verbatim_line() method available, that works the same way, but condenses the code into a single line by replacing `\n` with spaces and removing indentation. This is useful when you want to compress the chunk of raw code into a single line.
 
 
+### Variables Inside of Verbatim Blocks
+
+It would be nice if the logic inside verbatim blocks would never need access to outside information. In real life, however, that's not always the case. Imagine that we need to include a chunk of JavaScript for creating a JSON call inside of our page. The format of this JSON call is identical across all of our pages on the website, with the only difference being the name of the page requested. The RapydML for this might look something like this:
+
+	javascript:
+		$(document).ready(function() {
+				$.getJSON('call/json/get_docs/True?owner=pyjeon&repo=$page', function(html_docs) {
+					$("div#documentation").append(html_docs);
+				});
+			}
+
+The problem here, however, is that since `javascript` was defined as a verbatim tag, the variable `$page` will not get replaced. One work-around is to add this JavaScript to each page, modifying the value of `page` individually for each use. Surely, there must be a better way. There is, RapydML allows you to specify which variables are to be replaced on per-tag basis. You can specify them as arguments for the verbatim tag:
+
+	javascript($page):
+		$(document).ready(function() {
+				$.getJSON('call/json/get_docs/True?owner=pyjeon&repo=$page', function(html_docs) {
+					$("div#documentation").append(html_docs);
+				});
+			}
+
+Now every occurence of `$page` within te verbatim tag will be replaced. Note that the variables only apply to the current instance of the tag, and that only the specified values will get replaced:
+
+	$foo := "one"
+	$bar := "two"
+	
+	javascript:
+		var a = $foo + $bar;	// var a = $foo + $bar;
+	
+	javascript($foo):
+		var a = $foo + $bar;	// var a = "one" + $bar;
+	
+	javascript($bar):
+		var a = $foo + $bar;	// var a = $foo + "two";
+	
+	javascript($foo, $bar):
+		var a = $foo + $bar;	// var a = "one" + "two";
+
+
 ## Q: I don't really write raw HTML anymore, I use Django/Web2py/Rails, etc. template engine. What does RapydML buy me?
 
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
