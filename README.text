@@ -218,7 +218,7 @@ It would be nice if the logic inside verbatim blocks would never need access to 
 				});
 			}
 
-The problem here, however, is that since `javascript` was defined as a verbatim tag, the variable `$page` will not get replaced. One work-around is to add this JavaScript to each page, modifying the value of `page` individually for each use. Surely, there must be a better way. There is, RapydML allows you to specify which variables are to be replaced on per-tag basis. You can specify them as arguments for the verbatim tag:
+The problem here, however, is that since `javascript` was defined as a verbatim tag, the variable `$page` will not get replaced. One work-around is to add this JavaScript to each page, modifying the value of `$page` individually for each use. Surely, there must be a better way. There is, RapydML allows you to specify which variables are to be replaced on per-tag basis. You can specify them as arguments for the verbatim tag:
 
 	javascript($page):
 		$(document).ready(function() {
@@ -227,7 +227,7 @@ The problem here, however, is that since `javascript` was defined as a verbatim 
 				});
 			}
 
-Now every occurence of `$page` within te verbatim tag will be replaced. Note that the variables only apply to the current instance of the tag, and that only the specified values will get replaced:
+Now every occurence of `$page` within the verbatim tag will be replaced. Note that the variables only apply to the current instance of the tag, and that only the specified values will get replaced:
 
 	$foo := "one"
 	$bar := "two"
@@ -379,6 +379,38 @@ If you're observant, you probably noticed the undefined `content()` method. That
 	page()
 
 The result is that our pages are very clean and all would-be repetitive content is in one place. In fact, pyjeon.com website is written using this technique.
+
+
+## Nested Templates and Conditional Logic
+
+RapydML does not have `if/else` statements, and for a good reason. RapydML is meant to make HTML cleaner, not more complicated. Adding more power than is needed to a language only makes it harder to read someone else's code. Since HTML is not meant to be dynamic, conditional logic would do more harm than good - especially when one developer does something fancy and another developer needs to make sense of it later.
+
+However, there are valid cases when you need to generate pages with very similar layout, but not the same. Instead of having two very similar templates, you could use the latent method evaluation described in the previous section to create conditional logic within templates.
+
+Similarly to calling an undeclared method inside another method, you can use an undeclared variable, as long as it gets defined by the time the method is called. Continuing from the example in previous section, let's say we have a `page()` method defined for drawing the generic page template. We now need to define a special set of pages based on that template, but sharing a sub-template as well. For example, let's say we're selling a product and the only things changing are its price, description, and name. We can create a new template called product_template:
+
+	import template
+	
+	def content():
+		h3:
+			$name
+		$description
+		'Buy now for ' + $price
+	
+	def product_page():
+		page()
+
+Now for each of our products, we simply need to specify `$name`, `$description`, and `$price`, and call `product_page()` like so:
+
+	import product_template
+	
+	$name := 'Coffee Mug'
+	$description := 'A fancy coffee mug that keeps your coffee warm.'
+	$price := '$8.99'
+	
+	product_page()
+
+We can now invoke the same `product_page()` function, but the generated content will be unique for each product. We now have conditional templates without the messy `if/else` logic.
 
 
 ## Customizing Markup

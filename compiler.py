@@ -286,12 +286,16 @@ class Method:
 		self.color = color_parser
 		self.copy_heap = copy_heap
 		self.name = name
+		self.local_vars = []
 	
 	def add_line(self, line, verbatim=None, verbatim_vars=[]):
 		# this is where we handle replacing predefined variables
 		if verbatim is None:
 			line_type = NORMAL
 			trash, line = expand_assignment(line)
+			if line.find(':=') != -1:
+				operands = line.split(':=')
+				self.local_vars.append(operands[0].strip())
 		else:
 			line_type = VERBATIM
 		self.lines.append((line_type, line, verbatim_vars))
@@ -485,6 +489,7 @@ class Parser:
 		self.verbatim_indent = 0
 		self.verbatim_buffer = ''
 		self.verbatim_vars = ([], [])
+		self.need_to_remove_method_vars = False
 	
 	def get_debug_state(self):
 		# method used for debugging
@@ -598,6 +603,10 @@ class Parser:
 				if not self.current_verbatim and (self.loop_stack or line.strip()[:4] == 'for '):
 					self.create_loop(line[len(self.tree.indent_marker):])
 				else:
+					if self.need_to_remove_method_vars:
+						self.need_to_remove_method_vars = False
+						line = '%s%s(%s)' % (self.tree.indent_to(indent), self.current_verbatim, ', '.join(self.verbatim_vars[GLOBAL_VARS]))
+				
 					# add normal line to method sequence
 					self.method_map[self.creating_method].add_line(line[len(self.tree.indent_marker):], 
 																self.current_verbatim,
@@ -846,10 +855,12 @@ class Parser:
 					self.verbatim_vars[GLOBAL_VARS].append(variable)
 				except KeyError:
 					if self.creating_method \
-					and variable in self.method_map[self.creating_method].attributes:
+					and (variable in self.method_map[self.creating_method].attributes \
+					or variable in self.method_map[self.creating_method].local_vars):
 						self.verbatim_vars[METHOD_VARS].append(variable)
+						self.need_to_remove_method_vars = True
 						continue
-					ParserError("Variable '%s' used prior to declaration" % variable)
+					raise ParserError("Variable '%s' used prior to declaration." % variable)
 			
 			self.verbatim_indent = self.tree.find_indent(line)
 			if not self.creating_method:
