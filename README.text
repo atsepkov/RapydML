@@ -1,11 +1,11 @@
 # RapydML XML/HTML Abstraction Markup Language
 
-RapydML is a Pythonic abstraction for XML/HTML. The compiler generates HTML or HTML-like templates for Rails, Django, web2py or other frameworks (via templates) from indented, Python-like syntax. RapydML can also compile into arbitrary XML-like markup (such as SVG) based on a set of rules from user-defined template. These templates can have varying level of restrictions (compare the included lax HTML template against strict HTML5, for example)
+RapydML is a Pythonic abstraction for XML/HTML. The compiler generates HTML or HTML-like templates for Rails, Django, web2py or other frameworks (via templates) from indented, Python-like syntax. RapydML can also compile into arbitrary XML-like markup (such as SVG) based on a set of rules from user-defined template. These templates can have varying level of restrictions (compare the included lax HTML template against strict HTML5, for example).
 
-Since I get bored of writing formal documentation, I decided to put together a quick FAQ-type README file instead. Originally, I slapped together this compiler for myself, to make it easier and more fun to write my web2py templates. It worked, I love this thing, but I can't promise that the syntax/format will remain unchanged. I'm still playing with it, trying to decide which features I like and which I don't. Feel free to contact me with suggestions.
+Note that RapydML is still in beta. Some features and syntax could change in the future. Feel free to contact us with your own suggestions, if you have any.
 
 
-## Q: What is RapydML and how do I use it?
+## Getting Started
 
 RapydML is pre-parser that allows you to write HTML (or any other XML-like markup) in more readable, Python-like format. The parser then generates HTML for you, automatically closing/aligning different HTML tags (it can even be told to avoid closing tags for certain elements - like !DOCTYPE). It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
 
@@ -178,7 +178,7 @@ Likewise, we could have instead used `python.str.lower()` if the `$name` was alr
 	python.math.sin(min(1, 2, 3, 4))
 
 
-## Q: What if I want to insert raw HTML or Javascript into my code?
+## Inserting Raw Text, HTML, or JavaScript
 
 There were multiple alternatives I looked into for this, in the end I settled on one that seemed cleanest. RapydML introduces a verbatim() method, which if specified for the tag, will treat everything indented under the tag as raw text, putting it inside the HTML page as is. For example, let's add a Javascript tag. We can do it a couple different ways:
 
@@ -245,7 +245,7 @@ Now every occurence of `$page` within the verbatim tag will be replaced. Note th
 		var a = $foo + $bar;	// var a = "one" + "two";
 
 
-## Q: I don't really write raw HTML anymore, I use Django/Web2py/Rails, etc. template engine. What does RapydML buy me?
+## Using Template Engines (Django, web2py, Rails, etc.)
 
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
 
@@ -299,7 +299,7 @@ The notable difference here between Python and RapydML is the lack of namespaces
 To make it easier to write HTML, as well as create new templates, I have included templates for web2py, Django, and Rails. Feel free to use them to write your own web pages, as well as develop new templates for other engines. If you do plan to use a template engine, I suggest you also read the Advanced Usage section at the end.
 
 
-## Q: This looks similar to HAML, why did you write this? And why should I use this?
+## RapydML vs HAML
 
 Admittedly, I started this as an afternoon hobby project, while being too naive to check that something like HAML already exists. After looking at HAML, however, I quickly realized that I like my solution much more than HAML. HAML takes the Rails approach, where it assumes things for you, and if those assumptions are correct, 'magic' happens. If they're not, you will spend a lot of time banging your head against a wall. HAML assumes that most tags will be DIVs, for example, replacing forgotten tags with DIVs for you. This assumption probably will not hold in the future. HTML5 already added multiple new tags (header, footer, article, nav, etc.) to reduce the number of DIVs needed on a page, and more tags will likely follow. HAML also also assumes that you will be using it with Rails to generate .erb files, you're out of luck if you use it with Django or Web2py. Like Rails, it's very good for doing things it was designed to do, but not something the developers didn't account for.
 
@@ -310,21 +310,17 @@ Additionally, RapydML is more powerful than HAML, even allowing the use of Pytho
 	rapydml --svg1 file.pyml
 
 
-## Q: Cool, how do I install it?
+## Installation
 
 You don't need to, currently it's a stand alone file. In the future I might add an optional setup file, but I figured it would be overkill for now. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc.
 
-## TODO:
-- figure out if I want to address the broken ID shorthand (by forcing use of quotes for colors, for example) or remove these shorthands altogether
-- separate color channels for color arithmetic
 
-
-# Advanced Usage
+## Advanced Usage
 
 If you decide to use RapydML as the main tool for building your HTML, you might want to be familiar with some advanced features and tricks. If that's the case, this section is for you.
 
 
-## HTML Rendering Optimizations
+### HTML Rendering Optimizations
 
 If you're using web2py/Rails/Django or similar engine, you might have noticed that RapydML can handle some of the logic you previously relied on your templating engine for (things like combining content from multiple page templates/chunks, repeating portions of your HTML within the same page, etc.). You might be curious which solution is better. For that we'll need to understand what happens behind the scenes on your web server. Engines like web2py, Django, or Rails are useful for generating dynamic content that gets plugged into your HTML or even reducing the amount of repeated HTML markup between multiple web pages. They keep the code maintainable and ensure that you only need to make a change in one place to affect common logic on all of your your web pages.
 
@@ -337,7 +333,7 @@ For those unfamiliar with it, the above line includes HTML from basic.html insid
 If you're an experienced web developer, you probably know that on most hosting services storage space (especially for text/html) is relatively cheap compared to bandwidth and CPU usage. The bandwidth requirements in this case are the same, since both, template engine and RapydML logic happens before the page is served to the client. The main difference is that by using `extends`, you force your template engine to dynamically generate that HTML content before serving it to the client (using up CPU cycles, smart engines will probably cache this data), while by using `import` you make your compiler generate that HTML once and serve it repeatedly to your clients (using up a bit more storage space, which is not even significant when comparing it to storage taken up by images and other multimedia files). As a rule of thumb, I recommend using RapydML's logic over Django/Rails/web2py unless it's something that requires information that will not be available until runtime (i.e. news that you retrieve from the database, interactive form that deals with user input). It's not too different from preferring CSS over JavaScript for styling that doesn't change dynamically.
 
 
-## Writing DRY HTML/XML
+### Writing DRY HTML/XML
 
 RapydML does not evaluate the logic inside a method until it actually runs (gets invoked by logic not wrapped in a method). This means that you can call methods from other methods before they're declared. While subtle, this is a very useful feature. You can use this to take the importing idea presented in previous section a step further and do some really neat things with your website. For example, if you have a `template.pyml` file that defines `header_html()` and `footer_html()` methods (where header will take care of `<head>` declaration as well as the banner), your `index.pyml` will probably look like this:
 
@@ -381,7 +377,7 @@ If you're observant, you probably noticed the undefined `content()` method. That
 The result is that our pages are very clean and all would-be repetitive content is in one place. In fact, pyjeon.com website is written using this technique.
 
 
-## Nested Templates and Conditional Logic
+### Nested Templates and Conditional Logic
 
 RapydML does not have `if/else` statements, and for a good reason. RapydML is meant to make HTML cleaner, not more complicated. Adding more power than is needed to a language only makes it harder to read someone else's code. Since HTML is not meant to be dynamic, conditional logic would do more harm than good - especially when one developer does something fancy and another developer needs to make sense of it later.
 
@@ -413,90 +409,90 @@ Now for each of our products, we simply need to specify `$name`, `$description`,
 We can now invoke the same `product_page()` function, but the generated content will be unique for each product. We now have conditional templates without the messy `if/else` logic.
 
 
-## Customizing Markup
+### Customizing Markup
 
 RapydML is not limited to HTML. If you open up the `markup` directory, you will notice 3 files: `any`, `html`, and `html5`. `html` is the default markup RapydML assumes if you omit the markup modifier when compiling your `.pyml` file. This markup is designed to limit you to valid HTML tags, but does not enforce any attribute limitations or HTML versions. `html5` is much stricter, enforcing valid HTML5 tags as well as attributes. Finally, `any` is the most relaxed of the 3, allowing you to use any tag with any attributes. `any` markup assumes every tag which has not been explicitly defined as a method (via the use of `def` keyword inside of your `.pyml` file) to be a valid markup tag.
 
 Using one of these as an example, you can create your own rules for any other *ML-like markup (SVG, XSLT, or XML that's custom to your project). The basic rules are very simple, but their combinations allow for very powerful customizations:
 
-### Rules
+#### Rules
 
-#### Line Format
+##### Line Format
 Each line has to follow the following format (where whitespace can be one or more spaces or tabs, whitespace between attributes is not significant):
 
 	<tagname>	allowedattr1, allowedattr2, ...
 
-#### Example:
+##### Example:
 
 	<canvas>	height, width
 
-#### Attribute Inheritance
+##### Attribute Inheritance
 Indentation is used to define child nodes, child nodes inherit allowed attributes from their parents
 
-#### Example:
+##### Example:
 
 	<col>	span
 		<colgroup>
 
-#### Comments
+##### Comments
 `#` Marks beginning of a comment
 
-#### Example:
+##### Example:
 
 	# this is a comment
 
-#### Breaking Up Long Lines
+##### Breaking Up Long Lines
 When used at the end of the line, concatenates next line with current line, removing leading whitespace from next line
 
-#### Example:
+##### Example:
 
 	<.>		attr1, attr2, attr3, \
 			attr4, attr5
 
-#### Internal/Meta Nodes
+##### Internal/Meta Nodes
 `<.>` Marks an internal node/tag, this node can't be used directly, but passes a set of usable attributes to its child tags, this should not be a leaf node.
 
-#### Example:
+##### Example:
 
 	<.>	disabled, form, name
 		<input>
 		<button>
 
-#### Wildcard Attributes
+##### Wildcard Attributes
 `*` If used instead of attributes, removes any argument restrictions from this tag
 
-#### Example:
+##### Example:
 
 	<a>	*
 
-#### Force Separate Close Tag
+##### Force Separate Close Tag
 `+` Force this element to never use shorthand close: <div> allows <div />, <div>+ always forces <div></div>
 
-#### Example:
+##### Example:
 
 	<canvas>+
 
-#### Force No Close Tag
+##### Force No Close Tag
 `-` Force this element to never use close tag, note that adding children under this element in your .pyml file will trigger an error
 
-#### Example:
+##### Example:
 
 	<!DOCTYPE>-
 
-#### Inheriting Attributes From Multiple Nodes
+##### Inheriting Attributes From Multiple Nodes
 You can repeat the same tag multiple times, this is typically useful when it reuses same attributes as multiple other tags, yet those other tags don't share attributes. Note that when using + or - tag modifiers, the first occurence of the tag will be used for deciding the element/tag modifier. The rest will be ignored.
 
-#### Example:
+##### Example:
 
 	<canvas>	height, width
 		<input>	alt, src
 	<button>	disabled, type, value
 		<input>
 
-#### Wildcard Elements/Tags
+##### Wildcard Elements/Tags
 `<*>` A special tag, its presence means that omitted tags are allowed in pyml as well (and will automatically be inferred to use <tag></tag> format. Without this tag, RapydML will complain about any tags not specifically mentioned in the markup file.
 
-#### Example:
+##### Example:
 
 	<*> attr1, attr2	# allows any element name as long as only attr1 or attr2 attributes are used
 
