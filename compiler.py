@@ -21,6 +21,9 @@ METHOD_VARS = 1
 # variables used by regex
 REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
 
+# miscellaneous
+EOF_MARKER = '!!!_E_O_F_!!!\n'
+
 def is_number(s):
 	try:
 		float(s)
@@ -144,7 +147,7 @@ def replace_variables(code, var_hash, ignore_list=[]):
 			#code = re.sub('(?<!(\\\\|[A-Za-z0-9_]))\%s(?![A-Za-z0-9_])' % var, var_hash[var], code)
 			code = re.sub('(?<!\\\\)\%s(?![A-Za-z0-9_])' % var, var_hash[var], code)
 		except KeyError:
-			raise ParserError("Variable %s used prior to definition" % var)
+			raise ParserError("Variable '%s' used prior to definition" % var)
 	
 	if code.find('python.') != -1:
 		# use of python method
@@ -588,7 +591,7 @@ class Parser:
 				raise ParserError("Method name must be alphanumeric with underscores and start with a letter or underscore")
 			
 			if element in self.valid_tags.keys():
-				raise ParserError("Can't create method named '%s', it's a reserved HTML element name" % element)
+				raise ParserError("Can't create method named '%s', it's a reserved markup element name" % element)
 			
 			self.creating_method = element
 			# methods access shadowed variables to prevent overwriting globals
@@ -930,8 +933,6 @@ class Parser:
 				return
 		elif not tag or tag[0] == '#':
 			# strip comments and blank lines
-			if not tag and self.creating_method:
-				self.create_method(line) # finish methods if we need to
 			return
 		
 		line = expand_arrays(line)
@@ -950,7 +951,7 @@ class Parser:
 		elif self.creating_method is not None or line[:4] == 'def ':
 			# method definition
 			finished = self.create_method(line)
-			if not finished or not line.strip():
+			if not finished:
 				return
 		elif tag.find(':=') != -1:
 			# variable declaration
@@ -995,6 +996,8 @@ class Parser:
 				if substitutions:
 					self.write(line)
 					return
+		elif line == EOF_MARKER:
+			return
 		
 		tag = self.get_variables(tag)
 		
@@ -1082,7 +1085,9 @@ class Parser:
 		
 		# terminate non-finished loops and pop off remaining elements, closing our HTML tags
 		if self.current_verbatim is not None:
-			self.handle_verbatim_call('\n')
+			self.handle_verbatim_call(EOF_MARKER)
+		if self.creating_method is not None:
+			self.create_method(EOF_MARKER)
 		while self.loop_stack:
 			self.unroll_loop()
 		while self.element_stack:

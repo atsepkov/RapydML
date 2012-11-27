@@ -92,7 +92,7 @@ We don't need to quote whatever we're assigning to the variable, the leading/lag
 	[8:1]		-> []
 
 
-### Functions and HTML Chunks
+### Methods and HTML Chunks
 
 If you find yourself reusing the same HTML in multiple places, but not in sequential order (preventing you from using a loop), you can define a method, which you can then invoke. A RapydML method is a chunk of HTML, which then gets plugged in every time the method call occurs. For example, here is how we could create a navigation menu, reusing the same button logic:
 
@@ -106,12 +106,12 @@ If you find yourself reusing the same HTML in multiple places, but not in sequen
 		navbutton('Blog')
 		navbutton('About')
 
-There is another subtle, but extremely useful feature methods have. Method calls can have child elements. These children will get appended inside the last element declared inside the method. For example, if you're creating a page with multiple sections, and the content layout inside each section differs, you can do the following:
+There is another subtle, but extremely useful feature methods have. Method calls can have child elements. These children will get appended inside the last outer-level element declared inside the method. For example, if you're creating a page with multiple sections, and the content layout inside each section differs, you can do the following:
 
 	def subsection($title):
 		div(class="sub-section"):
 			$title
-			div(class="section-content")
+		div(class="section-content")
 	
 	div(id="main"):
 		subsection('Foo'):
@@ -121,7 +121,7 @@ There is another subtle, but extremely useful feature methods have. Method calls
 			div:
 				'Bar section has images, and sub-children'
 
-Both, Foo and Bar, will append the children inside of the `section-content` div. This is a very powerful feature, allowing method content not only to get dumped inside of your page, but also wrap around other content in your page - similar to Python decorators. Read the advanced section for some usage examples.
+Both, Foo and Bar, will append the children inside of the `section-content` div. This is a very powerful feature, allowing method content not only to get dumped inside of your page, but also wrap around other content in your page - similar to Python decorators. There is even more to this feature, which you can read about in the `Advanced Usage` section.
 
 
 ### Arithmetic and Color Manipulation
@@ -318,6 +318,36 @@ You don't need to, currently it's a stand alone file. In the future I might add 
 ## Advanced Usage
 
 If you decide to use RapydML as the main tool for building your HTML, you might want to be familiar with some advanced features and tricks. If that's the case, this section is for you.
+
+
+### Nesting Content Inside Methods
+
+In the section titled `Methods and HTML Chunks`, we mentioned the ability to append content to a pre-declared method by indenting logic underneath the method call. There is even more to this feature, however. The indentation restriction is dictated by the content of the method, not the method call itself. This means that your indentation doesn't need to be correct relative to the method call, but rather the HTML chunk inside the method, and will get parsed relative to the method content as well. For example, imagine that we declared the following method:
+
+	def content_box($title, $icon):
+		div(class="content-box"):
+			h1:
+				$title
+			div(class="content")
+				img(src=$icon)
+				div(class="content-text")
+
+We now want to append content inside of the `content-text` div, but if we use the same way to append it as before, it will end up getting appended inside the main `content-box` div, as a sibling to `content` div and `h1` tag. Using the indentation trick we just discovered, however, we can control where to nest the content:
+
+	content_box('Important Info', 'exclamation.png'):
+				'This text will get appended to the inner-most div of content_box'
+
+Likewise, if we used 2 indentations instead of 3, the content would get appended to the `content` div, right after the `content-text` div. This gives us great control of when and how our logic will get appended to the method, almost like using a multi-line variable. Another useful example is when you have a template method generating the parts of the page you plan to reuse:
+
+	def template():
+		html:
+			head:
+				...
+			body:
+				banner()
+				div(id="content")
+
+Without ability to control the indentation, you would be limited to placing your logic inside the outer-most tag, which is `html`. By using nested indentation, however, you can place content directly inside the `content` div, or just inside `body` itself (if it's a footer, for example).
 
 
 ### HTML Rendering Optimizations
