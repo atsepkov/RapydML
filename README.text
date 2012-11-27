@@ -156,10 +156,12 @@ Both, Foo and Bar, will append the children inside of the `section-content` div.
 
 Math and String Manipulation
 ----------------------------
+Like many other abstraction languages, RapydML can do a lot of the common logic for you. It has no concept of unit conversion like SASS, but it can easily handle many other things, like string manipulation, arithmetic, and mixing colors.
+
 
 ### Arithmetic and Colors
 
-Like many other pre-compilers, RapydML can handle math and color computations for you. For example, let's rewrite the above logic such that our navigation buttons start with dark blue and get brighter with each button:
+RapydML can handle basic arithmetic and color computations for you. For example, let's rewrite the above logic such that our navigation buttons start with dark blue and get brighter with each button:
 
 	$color := #004
 	def navbutton($text):
@@ -190,7 +192,7 @@ You probably noticed the use of `+=`, which is a shorthand for incrementing. Her
 Lastly, there is a caveat about color arithmetic. While RapydML will limit min/max colors to be within allowed range, the color get converted to an integer when performing operations. This means that if you keep adding blue to a color that already reached maximum allowed amount of blue, RapydML will start adding green. This behavior could be modified in the future such that each channel is independent.
 
 
-### Using Python's stdlib
+### Using Python Directly
 
 RapydML will handle simple arithmetic and string concatenation for you, but what if you require more complex logic? RapydML has access to the full firepower of python (or at least its stdlib, you can't import Python modules). For example, let's say we wrote the following function to generate a button linking to one of the social media websites:
 
@@ -213,6 +215,8 @@ Likewise, we could have instead used `python.str.lower()` if the `$name` was alr
 
 Using Raw Text, HTML, or JavaScript
 -----------------------------------
+As you probably already noticed, none of the above features address the possibility of having non-XML-like data inside of your page. There are times, however, when you might want raw text on your page that doesn't get interpreted. For example, you might need to embed JavaScript or CSS directly inside of your HTML, or might want to insert a raw chunk of HTML inside a tag when you can't get the markup just right via RapydML.
+
 
 ### Verbatim Method
 
