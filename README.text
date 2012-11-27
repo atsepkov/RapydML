@@ -1,12 +1,42 @@
 # RapydML XML/HTML Abstraction Markup Language
 
+What is RapydML?
+----------------
 RapydML is a Pythonic abstraction for XML/HTML. The compiler generates HTML or HTML-like templates for Rails, Django, web2py or other frameworks (via templates) from indented, Python-like syntax. RapydML can also compile into arbitrary XML-like markup (such as SVG) based on a set of rules from user-defined template. These templates can have varying level of restrictions (compare the included lax HTML template against strict HTML5, for example).
 
 Note that RapydML is still in beta. Some features and syntax could change in the future. Feel free to contact us with your own suggestions, if you have any.
 
 
-## Getting Started
+Installation
+------------
+You can download RapydML from the link at the top of the RapydML page on Pyjeon website (<http://pyjeon.com>) and extract it to a directory on your home computer. Alternatively, if you prefer to use the terminal, you can get RapydML via the following Linux/BSD command (this should also work on Mac OSX, or on Windows via cygwin):
 
+	wget http://bitbucket.org/pyjeon/rapydml/get/tip.zip; unzip tip.zip; rm tip.zip
+
+That's it. Currently, RapydML runs from directory it's unpacked to. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc:
+
+	alias rapydml='/directory/of/rapydml/rapydml'
+
+We do plan on adding an installer to handle this automatically in the future, like with RapydScript, when we have the time.
+
+
+Compilation
+-----------
+Using RapydML is pretty straightforward. Assuming you have added an alias for it (or placed it in one of the directories covered by the system path), you can run it as follows:
+
+	rapydml <location of file>
+
+RapydML also allows you to use alternative XML-like syntax. If you decide to do so, you can place your file in `markup` directory inside of RapydML and it will automatically be pulled into RapydML. You can then compile your file using a different markup:
+
+	rapydml --markupname <location of file>
+
+RapydML already includes `HTML`, `HTML5`, and `ANY` markups you can use as examples. For more options and information, you can invoke rapydml's help:
+
+	rapydml -h
+
+
+Getting Started
+---------------
 RapydML is pre-parser that allows you to write HTML (or any other XML-like markup) in more readable, Python-like format. The parser then generates HTML for you, automatically closing/aligning different HTML tags (it can even be told to avoid closing tags for certain elements - like !DOCTYPE). It's similar to SASS/SCSS, but for HTML (similar concept to HAML). Like SASS/SCSS/HAML, RapydML generates the page before it's deployed, and not dynamically as it's being served, saving you CPU cycles. Take a look at the following HTML, for example:
 
 	<html>
@@ -41,8 +71,8 @@ We can rewrite the above using RapydML as follows:
 				"Copyright 2012 by Me"
 
 
-### Loops and Code Reuse
-
+Loops and Code Reuse
+--------------------
 We can pass in attributes as if they're arguments in a function call. We can already see that RapydML code is shorter and cleaner, but this becomes even more apparent in larger HTML files. Let us add a few images to our page to show that we support all major browsers, for example. We'll need to modify our content div as follows:
 
 	<div id="content">
@@ -76,8 +106,8 @@ But what if our alt attributes don't happen to match our image names? That can b
 				img(src="$item[0].jpg", alt="$item[1]")
 
 
-### Variables and Sequences
-
+Variables and Sequences
+-----------------------
 Notice how we declare variables in RapydML. All variables must be preceeded by $, like in perl. While awkward at first, this actually allows us to more easily distinguish variables from HTML tags, and allows us better syntax highlighting of variables, something Python doesn't have. The assignment operator is := instead of the typical = sign. This is to avoid clashing with HTML's = sign if it happens to be part of the variable's value, as shown in example below:
 
 	$src := src="smiley.gif", alt="A Smiley"
@@ -92,8 +122,8 @@ We don't need to quote whatever we're assigning to the variable, the leading/lag
 	[8:1]		-> []
 
 
-### Methods and HTML Chunks
-
+Methods and HTML Chunks
+-----------------------
 If you find yourself reusing the same HTML in multiple places, but not in sequential order (preventing you from using a loop), you can define a method, which you can then invoke. A RapydML method is a chunk of HTML, which then gets plugged in every time the method call occurs. For example, here is how we could create a navigation menu, reusing the same button logic:
 
 	def navbutton($text):
@@ -124,7 +154,10 @@ There is another subtle, but extremely useful feature methods have. Method calls
 Both, Foo and Bar, will append the children inside of the `section-content` div. This is a very powerful feature, allowing method content not only to get dumped inside of your page, but also wrap around other content in your page - similar to Python decorators. There is even more to this feature, which you can read about in the `Advanced Usage` section.
 
 
-### Arithmetic and Color Manipulation
+Math and String Manipulation
+----------------------------
+
+### Arithmetic and Colors
 
 Like many other pre-compilers, RapydML can handle math and color computations for you. For example, let's rewrite the above logic such that our navigation buttons start with dark blue and get brighter with each button:
 
@@ -178,7 +211,10 @@ Likewise, we could have instead used `python.str.lower()` if the `$name` was alr
 	python.math.sin(min(1, 2, 3, 4))
 
 
-## Inserting Raw Text, HTML, or JavaScript
+Using Raw Text, HTML, or JavaScript
+-----------------------------------
+
+### Verbatim Method
 
 There were multiple alternatives I looked into for this, in the end I settled on one that seemed cleanest. RapydML introduces a verbatim() method, which if specified for the tag, will treat everything indented under the tag as raw text, putting it inside the HTML page as is. For example, let's add a Javascript tag. We can do it a couple different ways:
 
@@ -245,8 +281,8 @@ Now every occurence of `$page` within the verbatim tag will be replaced. Note th
 		var a = $foo + $bar;	// var a = "one" + "two";
 
 
-## Using Template Engines (Django, web2py, Rails, etc.)
-
+Using Django, web2py, Rails, etc.
+---------------------------------
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
 
 	django = TemplateEngine('<%% %s %%>')
@@ -286,7 +322,7 @@ Now we can use the def method to define any methods we want inside our template.
 	ul:
 		web2py.out(itemize1('www.google.com'))
 
-While the code in this example isn't shorter than the original, I think you will agree that it is cleaner. That's cool and all, but if you had to include language template definitions in every HTML file you write, you would probably lose interest in RapydML pretty fast. To remedy this, you can use the `import` statement. Feel free to take all your Django/Web2py/Rails definitions and dump them into a separate file, naming it django.pyml, for example. Now add the following line to each one of your files that needs to use it:
+While the code in this example isn't shorter than the original, you will probably agree that it is cleaner. That's fine, but if you had to include language template definitions in every HTML file you write, you would probably lose interest in RapydML pretty fast. To remedy this, you can use the `import` statement. Feel free to take all your Django/Web2py/Rails definitions and dump them into a separate file, naming it django.pyml, for example. Now add the following line to each one of your files that needs to use it:
 
 	import django
 
@@ -299,8 +335,8 @@ The notable difference here between Python and RapydML is the lack of namespaces
 To make it easier to write HTML, as well as create new templates, I have included templates for web2py, Django, and Rails. Feel free to use them to write your own web pages, as well as develop new templates for other engines. If you do plan to use a template engine, I suggest you also read the Advanced Usage section at the end.
 
 
-## RapydML vs HAML
-
+RapydML vs HAML
+---------------
 Admittedly, I started this as an afternoon hobby project, while being too naive to check that something like HAML already exists. After looking at HAML, however, I quickly realized that I like my solution much more than HAML. HAML takes the Rails approach, where it assumes things for you, and if those assumptions are correct, 'magic' happens. If they're not, you will spend a lot of time banging your head against a wall. HAML assumes that most tags will be DIVs, for example, replacing forgotten tags with DIVs for you. This assumption probably will not hold in the future. HTML5 already added multiple new tags (header, footer, article, nav, etc.) to reduce the number of DIVs needed on a page, and more tags will likely follow. HAML also also assumes that you will be using it with Rails to generate .erb files, you're out of luck if you use it with Django or Web2py. Like Rails, it's very good for doing things it was designed to do, but not something the developers didn't account for.
 
 RapydML takes a more Pythonic approach, being simple, extensible, and explicit. You can extend it as you see fit, and it makes very few assumptions for you. You will also notice that RapydML code, while slightly longer, is much more readable than HAML, taking the Python approach here as well. You spend a lot more time looking at the code than writing it, so why make the code hard to read?
@@ -310,13 +346,8 @@ Additionally, RapydML is more powerful than HAML, even allowing the use of Pytho
 	rapydml --svg1 file.pyml
 
 
-## Installation
-
-You don't need to, currently it's a stand alone file. In the future I might add an optional setup file, but I figured it would be overkill for now. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc.
-
-
-## Advanced Usage
-
+Advanced Usage
+--------------
 If you decide to use RapydML as the main tool for building your HTML, you might want to be familiar with some advanced features and tricks. If that's the case, this section is for you.
 
 
