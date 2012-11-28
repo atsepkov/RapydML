@@ -12,6 +12,8 @@ as reducing redundant syntax.')
 
 parser.add_argument('input', metavar='INPUT', type=file, 
 					help='The RapydML file to compile')
+parser.add_argument('--no-acknowledgement', dest='no_ack', action='store_true', default=False,
+					help="Avoid the string stating that page was generated using RapydML")
 
 # add all available markup languages to the help menu
 rapydml_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -38,4 +40,6 @@ markup_lang = load(markup, rapydml_dir)
 html = Parser(markup_lang)
 filename = args.input.name.rsplit('.', 1)[0]
 with open(filename + '.html', 'w') as output:
+	if not args.no_ack:
+		output.write('<!-- This page has been auto-generated using RapydML (http://www.pyjeon.com) -->\n')
 	output.write(html.parse(args.input.name))

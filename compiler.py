@@ -1,7 +1,9 @@
 import sys, re, os
 import string
-from util import IndentParser, ParserError
+from util import IndentParser, ParserError, ShellError
 from markuploader import NORMAL, SINGLE
+from subprocess import Popen, PIPE
+import pipes
 
 # modules imported for convenience when using python.* within RapydML
 import math
@@ -15,6 +17,7 @@ DEBUG = False
 VERBATIM = 1
 MULTI_LINE = 0
 SINGLE_LINE = 1
+CODE_BLOCK = 2
 GLOBAL_VARS = 0
 METHOD_VARS = 1
 
@@ -467,7 +470,8 @@ class Parser:
 		'create',
 		'append',
 		'verbatim',
-		'verbatim_line'
+		'verbatim_line',
+		'code_block'
 	]
 	
 	def __init__(self, valid_tags):
@@ -697,7 +701,8 @@ class Parser:
 				# failed importing from working directory, try importing from rapydml directory
 				cur_dir = os.getcwd()
 				try:
-					os.chdir(rapydml_dir)
+					# we have to rely on __file__, because cwd could be different if invoked by another script
+					os.chdir(os.path.dirname(__file__))
 					self.imported_files.append(tokens[1])
 					self.parse(tokens[1].replace('.', '/') +'.pyml', True)
 				except IOError:
@@ -817,6 +822,12 @@ class Parser:
 		newtag = assignment_pair[0].strip()
 		element, attributes = parse_definition(assignment_pair[1])
 		length = len(attributes)
+		
+		# code_block follows same format as verbatim, but always takes additional argument
+		if element == 'code_block':
+			length -= 1
+			sys_command = attributes.pop()[1:-1]
+		
 		if length == 0:
 			# no args were passed, this version has no outer tags wrapping the text
 			starttag = endtag = ''
@@ -836,13 +847,18 @@ class Parser:
 			starttag = attributes[0][1:-1] + '\n'
 			endtag = attributes[1][1:-1] + '\n'
 		else:
-			raise ParserError("Verbatim definition takes 0,1, or 2 arguments, %s arguments were given" % length)
+			if element == 'code_block':
+				raise ParserError("Code Block definition takes 1, 2, or 3 arguments, %s arguments were given" % length)
+			else:
+				raise ParserError("Verbatim definition takes 0, 1, or 2 arguments, %s arguments were given" % length)
 		
 		# append to verbatim format in (start_tag, end_tag, type) format
 		if element == 'verbatim_line':
 			self.verbatim[newtag] = (starttag, endtag, SINGLE_LINE)
-		else:
+		elif element == 'verbatim':
 			self.verbatim[newtag] = (starttag, endtag, MULTI_LINE)
+		else:
+			self.verbatim[newtag] = (starttag, endtag, CODE_BLOCK, sys_command)
 	
 	def handle_verbatim_call(self, line):
 		indent = self.tree.find_indent(line)
@@ -868,18 +884,15 @@ class Parser:
 			self.verbatim_indent = self.tree.find_indent(line)
 			if not self.creating_method:
 				self.handle_indent(indent, None)
-				if self.verbatim[self.current_verbatim][0] != '':
-					self.verbatim_buffer += self.tree.indent_to(self.verbatim_indent) + self.verbatim[self.current_verbatim][0]
 				self.last_opened_element = None
 				self.element_stack.append(None)
 		else:
 			# we're continuing to parse existing verbatim logic
+			verbatim_properties = self.verbatim[self.current_verbatim]
 			if indent > self.verbatim_indent:
 				# still inside verbatim block
 				if not self.creating_method:
-					# doesn't really serve any purpose, this logic is mostly cosmetic to make indentation pretty
-					if self.verbatim[self.current_verbatim][0] == '' and line.find(self.tree.indent_marker) == 0:
-						line = line[len(self.tree.indent_marker):]
+					line = line[self.verbatim_indent+1:]
 				
 					# plug in the variables, if they appear on this line
 					for variable in self.verbatim_vars[GLOBAL_VARS]:
@@ -889,11 +902,24 @@ class Parser:
 			else:
 				# end of verbatim logic
 				if not self.creating_method:
-					if self.verbatim[self.current_verbatim][1] != '':
-						self.verbatim_buffer += self.tree.indent_to(self.verbatim_indent) + self.verbatim[self.current_verbatim][1]
-					if self.verbatim[self.current_verbatim][2] == SINGLE_LINE:
+					if verbatim_properties[2] == SINGLE_LINE:
 						self.verbatim_buffer = re.sub('\n[ 	]*', ' ', self.verbatim_buffer)
 						self.verbatim_buffer += '\n'
+					elif verbatim_properties[2] == CODE_BLOCK:
+						result = Popen('echo %s' % pipes.quote(self.verbatim_buffer) + verbatim_properties[3],
+										stdout=PIPE, stderr=PIPE, shell=True).communicate()
+						if result[1]:
+							raise ShellError("'%s' code_block tag triggered the following OS error: %s" %
+											(self.current_verbatim, result[1]))
+						self.verbatim_buffer = result[0] + '\n'
+					if verbatim_properties[1] != '':
+						vindent = self.tree.indent_to(self.verbatim_indent)
+						self.verbatim_buffer = '%s%s%s%s%s' % (\
+							vindent,
+							verbatim_properties[0],
+							self.verbatim_buffer,
+							vindent,
+							verbatim_properties[1])
 					self.write(self.verbatim_buffer)
 					self.verbatim_buffer = ''
 					self.close_last_element() # close verbatim element so it does not screw up the stack
@@ -940,8 +966,9 @@ class Parser:
 		
 		# first check is a quick pre-qualifier to avoid expensive regex, second one avoids
 		# false positives like: this_is_not_verbatim_call()
-		if tag.find('verbatim') != -1 and re.search(r'\bverbatim(_line)?\b', tag):
-			# verbatim declaration
+		if (tag.find('verbatim') != -1 or tag.find('code_block') != -1) \
+		and re.search(r'\b(verbatim(_line)?|code_block)\b', tag):
+			# verbatim/code_block declaration
 			self.handle_verbatim_declaration(tag)
 			return
 		elif self.creating_method is None and (self.loop_stack or tag[:4] == 'for '):
@@ -1046,10 +1073,8 @@ class Parser:
 		self.write(whitespace + starttag)
 	
 	def parse(self, filename, module=False):
-		global rapydml_dir
 		# we assume here that the file is relatively small compared to our allowed buffer
 		if not module:
-			rapydml_dir = os.getcwd()
 			self.__init__(self.valid_tags) #reset
 			os.chdir(os.path.abspath(os.path.dirname(filename)))
 		line_num = 0
@@ -1069,7 +1094,7 @@ class Parser:
 						buffer = ''
 					
 					self.handle_line(line)
-				except ParserError, (error):
+				except (ParserError, ShellError) as error:
 					if DEBUG:
 						self.get_debug_state()
 					print "Error in %s: line %d: %s" % (filename, line_num, error.message)

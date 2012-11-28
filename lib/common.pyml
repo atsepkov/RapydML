@@ -1,0 +1,3 @@
+text = verbatim_line(p)
+javascript = verbatim(script(type='text/javascript'))
+rapydscript = code_block(script(type='text/javascript'), ' > /tmp/tmpfile.pyj && rapydscript /tmp/tmpfile.pyj && cat /tmp/tmpfile.js')

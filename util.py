@@ -9,6 +9,12 @@ class ParserError(Exception):
 	def __str__(self):
 		return self.message
 
+class ShellError(ParserError):
+	"""
+	Helper class for OS-generated error messages when using code_block
+	"""
+	pass
+
 class IndentParser:
 	def __init__(self):
 		self.indent = 0

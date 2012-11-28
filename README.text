@@ -285,6 +285,20 @@ Now every occurence of `$page` within the verbatim tag will be replaced. Note th
 		var a = $foo + $bar;	// var a = "one" + "two";
 
 
+### Using Other Languages
+
+Verbatim tag is convenient when you want to include raw JavaScript inside of your page. But what if you're using RapydScript, CoffeeScript, or something else for your JavaScript? The typical way to include those is by having the `<script>` tag link to the .js file directly instead of having the code inside. If it's just a few lines of code, however, it often makes sense to just implement it inside of the page itself. Still, it would be nice if you could write that snippet in your language of choice rather than JavaScript. And for cases like that, RapydML offers `code_block()` method.
+
+`code_block` is `verbatim`'s big brother. It works almost the same way, except it passes the content through a sequence of shell commands of your choosing. The only requiremenet is that whatever the sequence of commands is, it must accept STDIN and return STDOUT (STDERR will be reported to you by RapydML at compile time so you can investigate the problem). For example, let's say we want to be able to use RapydScript directly inside our webpages. Assuming RapydScript is already installed on the computer, you can add the following line to your page to create a tag that will automatically convert RapydScript code:
+
+	rapydscript = code_block(script(type="text/javascript"), \
+		' > /tmp/tempfile.pyj && rapydscript /tmp/tempfile.pyj && cat /tmp/tempfile.js')
+
+The above command works around the fact that RapydScript doesn't work with STDIN by dumping the input to a file first, and works around it not returning STDOUT by using `cat` command. The command would work the same way on Windows, where instead of `cat` you could use `type`. Now, you can use `rapydscript` tag the same exact way we used `javascript` tag in previous section. Don't worry if you're not comfortable with the shell, the above command is already included in `lib/common` for your convenience. If you include the following line in your RapydML pages, you can automatically use `text`, `javascript`, and `rapydscript` tags:
+
+	import lib.common
+
+
 Using Django, web2py, Rails, etc.
 ---------------------------------
 RapydML easily extends to support any template engine your heart desires with just a few lines defining how to handle the given template. Take a look at the following example that adds support for Django's for loops:
@@ -336,7 +350,9 @@ Now you can even share your Django definitions with other developers. To keep th
 
 The notable difference here between Python and RapydML is the lack of namespaces. That means we would still reference the template engine by the same name as it's declared in the template file, rather than as we import it. So we would invoke the for loop as django.for(...) rather than views.templates.django.for(...). RapydML's import mechanism isn't as complex as Python's, we simply concatenate the contents of imported files into the main one, checking only that we don't import the same file multiple times.
 
-To make it easier to write HTML, as well as create new templates, I have included templates for web2py, Django, and Rails. Feel free to use them to write your own web pages, as well as develop new templates for other engines. If you do plan to use a template engine, I suggest you also read the Advanced Usage section at the end.
+To make it easier to write HTML, as well as create new templates, I have included templates for web2py, Django, and Rails, they're inside the `lib` directory. Feel free to use them to write your own web pages, as well as develop new templates for other engines. If you do plan to use a template engine, I suggest you also read the Advanced Usage section at the end. To add one of the included template engines to your project, simply add the following line at the top of your file:
+
+	import lib.web2py
 
 
 RapydML vs HAML
