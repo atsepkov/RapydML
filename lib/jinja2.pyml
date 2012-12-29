@@ -1,0 +1,7 @@
+# JINJA2 Template Engine
+
+jinja2 = TemplateEngine('{%s}')
+
+jinja2.extends = create('%% extends %s %%')
+
+jinja2.block = create('%% block %s %%', '% endblock %')
