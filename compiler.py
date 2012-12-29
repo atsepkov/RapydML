@@ -980,7 +980,7 @@ class Parser:
 			finished = self.create_method(line)
 			if not finished:
 				return
-		elif tag.find(':=') != -1:
+		if tag.find(':=') != -1:
 			# variable declaration
 			self.set_variable(tag)
 			return
