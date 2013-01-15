@@ -251,7 +251,8 @@ class ColorConverter:
 		# create a map for html color names
 		self.color_map = {}
 		orig_dir = os.getcwd()
-		os.chdir(os.path.abspath(os.path.dirname(sys.argv[0])))
+		cur_dir = os.path.dirname(__file__)
+		os.chdir(os.path.abspath(cur_dir))
 		with open('html_colors.txt', 'r') as input:
 			for line in input:
 				pair = line.split(':')
