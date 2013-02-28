@@ -41,6 +41,6 @@ setup(name='rapydml',
       platforms=['any'],
       license='GNU GPL3',
       install_requires=[],
-      scripts=['rapydml']
+      scripts=['bin/rapydml']
 )
 
