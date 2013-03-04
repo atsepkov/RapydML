@@ -9,15 +9,15 @@ Note that RapydML is still in beta. Some features and syntax could change in the
 
 Installation
 ------------
-You can download RapydML from the link at the top of the RapydML page on Pyjeon website (<http://pyjeon.com>) and extract it to a directory on your home computer. Alternatively, if you prefer to use the terminal, you can get RapydML via the following Linux/BSD command (this should also work on Mac OSX, or on Windows via cygwin):
+You can download RapydML from the link at the top of the RapydML page on Pyjeon website (<http://pyjeon.com>) and extract it to a directory on your home computer. Alternatively, you can download it from our repository using the terminal directly (you will need Mercurial client installed):
 
-	wget http://bitbucket.org/pyjeon/rapydml/get/tip.zip; unzip tip.zip; rm tip.zip
+	hg clone https://pyjeon@bitbucket.org/pyjeon/rapydml
 
-That's it. Currently, RapydML runs from directory it's unpacked to. If you want to use it without having to be in the same directory, just drop it in your bin directory (or somewhere in your system path on Windows) or create an alias for it in your .bashrc:
+Afterwards, navigate to `rapydml` directory, and run the following command to perform the installation:
 
-	alias rapydml='/directory/of/rapydml/rapydml'
+	python setup.py install
 
-We do plan on adding an installer to handle this automatically in the future, like with RapydScript, when we have the time.
+This will install `rapydml` as a globally available command. Alternatively, you can also install RapydML using pip repository.
 
 
 Compilation
