@@ -7,6 +7,12 @@ RapydML is a Pythonic abstraction for XML/HTML. The compiler generates HTML or H
 Note that RapydML is still in beta. Some features and syntax could change in the future. Feel free to contact us with your own suggestions, if you have any.
 
 
+Community
+---------
+If you have questions, bug reports, or feature requests, feel free to post them on our mailing list:
+<http://groups.google.com/group/rapydml>
+
+
 Installation
 ------------
 You can download RapydML from the link at the top of the RapydML page on Pyjeon website (<http://pyjeon.com>) and extract it to a directory on your home computer. Alternatively, you can download it from our repository using the terminal directly (you will need Mercurial client installed):
