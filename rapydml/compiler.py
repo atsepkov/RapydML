@@ -94,10 +94,10 @@ def get_attr(tag):
 				length = len(attr)
 				# check that last character is a quote
 				# and second to last is not an escape character
-				if length and attr[-1] == in_string \
-				and length > 1 and attr[-2] != '\\':
-					# string ended
-					in_string = None
+				if length and attr[-1] == in_string:
+					if length > 1 and attr[-2] != '\\' or length == 1:
+						# string ended
+						in_string = None
 			else:
 				if	attr.count('"') % 2:
 					# double-quoted string started
