@@ -23,7 +23,7 @@ METHOD_VARS = 1
 
 # variables used by regex
 REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
-NOT_SINGLE_QUOTED = r'^[^\']*(?:([\'])[^\']*\1)*[^\']*'
+NOT_SINGLE_QUOTED = r'^(?:[^\']*([\'])[^\']*\1)*[^\']*'
 
 # miscellaneous
 EOF_MARKER = '!!!_E_O_F_!!!\n'
