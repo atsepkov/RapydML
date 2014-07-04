@@ -23,6 +23,7 @@ METHOD_VARS = 1
 
 # variables used by regex
 REGEX_NESTED_PAREN = r'\([^()]*(?:\(.*?\))*[^()]*\)'
+NOT_SINGLE_QUOTED = r'^[^\']*(?:([\'])[^\']*\1)*[^\']*'
 
 # miscellaneous
 EOF_MARKER = '!!!_E_O_F_!!!\n'
@@ -930,9 +931,9 @@ class Parser:
 		return False
 	
 	def handle_line(self, line):
-		if DEBUG:
-			print self.element_stack, '|%s|' % self.creating_method, line
 		indent = self.tree.find_indent(line)
+		if DEBUG:
+			print self.element_stack, '|%s|' % self.creating_method, indent, repr(line)
 		whitespace = self.tree.indent_to(indent)
 		
 		#parse the tag
@@ -1019,14 +1020,14 @@ class Parser:
 				else:
 					for item in substitutions:
 						pattern = item.replace('(', '\(').replace(')', '\)').replace('.', '\.')
-						if re.match(r'^[^\']*(?:([\'])[^\']*\1)*[^\']*\b%s' % pattern, tag) \
+						if re.match(r'%s\b%s' % (NOT_SINGLE_QUOTED, pattern), tag) \
 								and item.split('.')[0] in self.template_engines:
 							# template method declaration or call
-							line = line.replace(item, self.parse_template_engine_call(item, None).strip('\n'))
+							tag = tag.replace(item, self.parse_template_engine_call(item, None).strip('\n'))
 				
-				if substitutions:
-					self.write(line)
-					return
+#				if substitutions:
+#					self.write(line)
+#					return
 		elif line == EOF_MARKER:
 			return
 		
@@ -1101,6 +1102,7 @@ class Parser:
 				except (ParserError, ShellError) as error:
 					if DEBUG:
 						self.get_debug_state()
+						raise error
 					print "Error in %s: line %d: %s" % (filename, line_num, error.message)
 					print repr(line)
 					sys.exit()
