@@ -1013,13 +1013,16 @@ class Parser:
 				# template_engine.template_method(.*)
 				# as long as the method is not in a string
 				# and matching the parentheses correctly even if items inside use parentheses, up to 1 level deep
-				substitutions = re.findall(r'^[^\'"]*(?:([\'"])[^\'"]*\1)*[^\'"]*(\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b%s)' % REGEX_NESTED_PAREN, tag)
+				substitutions = re.findall(r'(\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b%s)' % REGEX_NESTED_PAREN, tag)
 				if len(substitutions) == 1 and tag.find(substitutions[0][1]) == 0:
 					line = self.parse_template_engine_call(tag, indent)
 				else:
 					for item in substitutions:
-						# template method declaration or call
-						line = line.replace(item[1], self.parse_template_engine_call(item[1], None).strip('\n'))
+						pattern = item.replace('(', '\(').replace(')', '\)').replace('.', '\.')
+						if re.match(r'^[^\']*(?:([\'])[^\']*\1)*[^\']*\b%s' % pattern, tag) \
+								and item.split('.')[0] in self.template_engines:
+							# template method declaration or call
+							line = line.replace(item, self.parse_template_engine_call(item, None).strip('\n'))
 				
 				if substitutions:
 					self.write(line)
