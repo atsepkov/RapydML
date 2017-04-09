@@ -1089,10 +1089,11 @@ class Parser:
 				line_num += 1
 				try:
 					#parse multi-lines together
-					if line[-2:] == '\\\n':
+					#ignore extra spaces after '\' at the line end 
+					if line.rstrip()[-1:] == '\\':
 						if buffer:
 							line = ' ' + line.lstrip()
-						buffer += line[:-2]
+						buffer += line.rstrip()[:-1]
 						continue
 					elif buffer:
 						line = buffer + ' ' + line.lstrip()
